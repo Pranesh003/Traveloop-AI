@@ -2,21 +2,67 @@ import React, { useState } from 'react';
 import SidebarLayout from '../components/SidebarLayout';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
-const TRIP_EVENTS = [
-  { id: 1, tripId: 1, title: 'Japan Discovery', start: new Date(2026, 9, 15), end: new Date(2026, 9, 25), color: '#7c3aed', emoji: '🗾' },
-  { id: 2, tripId: 2, title: 'Bali Retreat', start: new Date(2026, 11, 20), end: new Date(2026, 11, 28), color: '#10b981', emoji: '🌴' },
-  { id: 3, tripId: 4, title: 'Dubai Luxury', start: new Date(2027, 0, 10), end: new Date(2027, 0, 17), color: '#f97316', emoji: '🏙️' },
-];
+const COLORS = ['#7c3aed', '#10b981', '#f97316', '#3b82f6', '#ec4899'];
 
 export default function Calendar() {
   const navigate = useNavigate();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
+  const [events, setEvents] = useState([]);
+
+  React.useEffect(() => {
+    const fetchTrips = async () => {
+      try {
+        const data = await apiService.trips.getAll();
+        const mappedEvents = [];
+        data.forEach((t, i) => {
+          const tripStart = new Date(t.startDate || Date.now());
+          const aiData = typeof t.aiData === 'string' ? JSON.parse(t.aiData) : t.aiData;
+          
+          if (aiData?.itinerary && Array.isArray(aiData.itinerary) && aiData.itinerary.length > 0) {
+            aiData.itinerary.forEach((dayPlan, dayIdx) => {
+              const eventDate = new Date(tripStart.getTime() + (dayIdx * 24 * 60 * 60 * 1000));
+              const title = dayPlan.theme || dayPlan.city || `Day ${dayPlan.day}`;
+              const emoji = dayPlan.activities?.[0]?.emoji || '📍';
+              mappedEvents.push({
+                id: `${t.id}-day-${dayPlan.day}`,
+                tripId: t.id,
+                tripName: t.name || `Trip #${t.id.substring(0,6)}`,
+                title: title,
+                start: eventDate,
+                end: eventDate,
+                color: COLORS[i % COLORS.length],
+                emoji: emoji,
+                isSubDay: true
+              });
+            });
+          } else {
+            const end = new Date(t.endDate || Date.now() + 86400000);
+            mappedEvents.push({
+              id: t.id,
+              tripId: t.id,
+              tripName: t.name || `Trip #${t.id.substring(0,6)}`,
+              title: t.name || `Trip #${t.id.substring(0,6)}`,
+              start: tripStart,
+              end: end,
+              color: COLORS[i % COLORS.length],
+              emoji: '🌍',
+              isSubDay: false
+            });
+          }
+        });
+        setEvents(mappedEvents);
+      } catch (err) {
+        console.error('Failed to load trips for calendar', err);
+      }
+    };
+    fetchTrips();
+  }, []);
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
@@ -26,7 +72,13 @@ export default function Calendar() {
 
   const getEventsForDay = (day) => {
     const date = new Date(year, month, day);
-    return TRIP_EVENTS.filter(e => date >= e.start && date <= e.end);
+    // Remove time portion for comparison
+    date.setHours(0, 0, 0, 0);
+    return events.filter(e => {
+      const eStart = new Date(e.start); eStart.setHours(0,0,0,0);
+      const eEnd = new Date(e.end); eEnd.setHours(0,0,0,0);
+      return date >= eStart && date <= eEnd;
+    });
   };
 
   const isToday = (day) => {
@@ -49,10 +101,10 @@ export default function Calendar() {
 
         {/* Legend */}
         <div className="glass-card p-4 mb-4 flex gap-4 flex-wrap animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          {TRIP_EVENTS.map(e => (
-            <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {events.length === 0 ? <span className="text-secondary text-sm">No trips planned yet.</span> : Array.from(new Map(events.map(e => [e.tripId, e])).values()).map(e => (
+            <div key={e.tripId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 12, height: 12, borderRadius: 3, background: e.color }} />
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{e.emoji} {e.title}</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>🌍 {e.tripName}</span>
             </div>
           ))}
         </div>
@@ -88,7 +140,9 @@ export default function Calendar() {
                   key={day}
                   style={{
                     padding: 'var(--space-3)',
-                    minHeight: 80,
+                    minHeight: 100,
+                    minWidth: 0,
+                    overflow: 'hidden',
                     borderRight: '1px solid var(--border)',
                     borderBottom: '1px solid var(--border)',
                     cursor: events.length > 0 ? 'pointer' : 'default',

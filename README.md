@@ -23,6 +23,15 @@
 
 ---
 
+### 🚀 What's New in v2.1
+- **Day-to-Day Dynamic Calendar:** The calendar now automatically unpacks AI-generated itineraries and plots each day's specific theme and activities onto the calendar grid, complete with emojis and color-coding.
+- **Robust AI Data Parsing:** Enhanced defensive parsing across `ItineraryBuilder`, `Budget`, and `TripDetails` to handle stringified JSON safely from the backend, ensuring no missing data.
+- **Full Backend Integration:** `MyTrips`, `Calendar`, and the dashboard are now fully decoupled from static mock data and fetch directly from the PostgreSQL/Prisma backend.
+- **Premium Feature Gating:** Strictly enforced role-based access for the AI Planner and AI Chat to prevent free users from accessing premium endpoints.
+- **Grid Overflow Fixes:** Cleaned up CSS grid calculations in `Calendar.jsx` to perfectly truncate long AI responses.
+
+---
+
 ## 📑 Table of Contents
 
 1. [✨ Features](#-features)

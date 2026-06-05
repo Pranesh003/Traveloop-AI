@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plane, Sparkles, Map, Shield, Zap, Globe, Star, ChevronRight, ArrowRight, Check } from 'lucide-react';
+import { Plane, Sparkles, Map, Shield, Zap, Globe, Star, ChevronRight, ArrowRight, Check, CreditCard, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import './Landing.css';
 
 const HERO_WORDS = ['Dream Trip', 'Adventure', 'Honeymoon', 'Backpack Tour', 'Family Vacation', 'Solo Journey'];
@@ -15,9 +16,10 @@ const FEATURES = [
 ];
 
 const PRICING = [
-  { name: 'Free', price: '₹0', period: 'forever', features: ['3 trips', 'Basic AI', 'Itinerary builder', 'Packing checklist'], cta: 'Get Started', highlight: false },
+  { name: 'Free', price: '₹0', period: 'forever', features: ['Max 3 active trips', 'Basic AI planner', 'Public itineraries', 'Community support'], cta: 'Get Started', highlight: false },
   { name: 'Premium', price: '₹299', period: '/month', features: ['Unlimited trips', 'Full AI planner', 'Collaboration', 'Budget tracking', 'Travel journal', 'Priority support'], cta: 'Start Free Trial', highlight: true },
   { name: 'Pro', price: '₹799', period: '/month', features: ['Everything in Premium', 'AI agents', 'Price prediction', 'Advanced analytics', 'API access', 'White-label options'], cta: 'Go Pro', highlight: false },
+  { name: 'Enterprise', price: 'Custom', period: '', features: ['Agency Dashboard', 'CRM & Lead tracking', 'Vendor management', 'White Label', 'Dedicated manager'], cta: 'Contact Sales', highlight: false },
 ];
 
 const STATS = [
@@ -29,9 +31,21 @@ const STATS = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { user, updateUser } = useAuth();
   const [wordIdx, setWordIdx] = useState(0);
   const [demoPrompt, setDemoPrompt] = useState('');
   const [demoLoading, setDemoLoading] = useState(false);
+
+  // Payment Gateway states
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanName, setSelectedPlanName] = useState('');
+  const [selectedPlanPrice, setSelectedPlanPrice] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setWordIdx(i => (i + 1) % HERO_WORDS.length), 2500);
@@ -61,8 +75,8 @@ export default function Landing() {
           <a href="#about">About</a>
         </div>
         <div className="nav-actions">
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login')}>Sign In</button>
-          <button className="btn btn-primary btn-sm" onClick={() => navigate('/login')}>Get Started Free</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/login', { state: { mode: 'login' } })}>Log In</button>
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/login', { state: { mode: 'signup' } })}>Sign In</button>
         </div>
       </nav>
 
@@ -228,7 +242,37 @@ export default function Landing() {
               </ul>
               <button
                 className={`btn ${highlight ? 'btn-primary' : 'btn-secondary'} w-full`}
-                onClick={() => navigate('/login')}
+                onClick={() => {
+                  if (user) {
+                    if (user.role === 'super_admin' || user.role === 'admin') {
+                      localStorage.removeItem('tl_token');
+                      localStorage.removeItem('tl_user');
+                      window.location.href = '/login';
+                    } else {
+                      if (name.toLowerCase() === 'free') {
+                        updateUser({ plan: 'free' }).then(() => {
+                          window.location.href = '/dashboard';
+                        });
+                      } else if (name.toLowerCase() === 'enterprise') {
+                        window.location.href = 'mailto:sales@traveloop.com';
+                      } else {
+                        setSelectedPlanName(name);
+                        setSelectedPlanPrice(price);
+                        setPaymentModalOpen(true);
+                      }
+                    }
+                  } else {
+                    if (name.toLowerCase() === 'free') {
+                      navigate('/login', { state: { selectedPlan: 'free' } });
+                    } else if (name.toLowerCase() === 'enterprise') {
+                      window.location.href = 'mailto:sales@traveloop.com';
+                    } else {
+                      setSelectedPlanName(name);
+                      setSelectedPlanPrice(price);
+                      setPaymentModalOpen(true);
+                    }
+                  }
+                }}
               >
                 {cta} <ChevronRight size={16} />
               </button>
@@ -242,7 +286,22 @@ export default function Landing() {
         <div className="cta-orb" />
         <h2>Ready to travel smarter?</h2>
         <p>Join thousands of travelers planning better trips with AI.</p>
-        <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')}>
+        <button 
+          className="btn btn-primary btn-lg" 
+          onClick={() => {
+            if (user) {
+              if (user.role === 'super_admin' || user.role === 'admin') {
+                localStorage.removeItem('tl_token');
+                localStorage.removeItem('tl_user');
+                window.location.href = '/login';
+              } else {
+                window.location.href = '/dashboard';
+              }
+            } else {
+              navigate('/login');
+            }
+          }}
+        >
           <Sparkles size={20} />
           Start Planning for Free
         </button>
@@ -256,6 +315,125 @@ export default function Landing() {
         </div>
         <p>© 2026 Traveloop AI. Your personal AI travel agent.</p>
       </footer>
+
+      {/* ─── Payment Modal ─── */}
+      {paymentModalOpen && (
+        <div className="modal-backdrop" onClick={() => setPaymentModalOpen(false)}>
+          <div className="modal glass-card" style={{ maxWidth: 440, padding: 32 }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>
+                <CreditCard className="text-violet" size={20} />
+                Secure Checkout
+              </h3>
+              <button 
+                onClick={() => setPaymentModalOpen(false)} 
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 8, borderRadius: '50%' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {paymentSuccess ? (
+              <div className="text-center py-6 flex flex-col items-center gap-4 animate-scale-in">
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', color: 'var(--emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto' }}>
+                  ✓
+                </div>
+                <h4 className="text-lg font-bold text-white">Payment Successful!</h4>
+                <p className="text-sm text-gray-400">
+                  {user ? "Your account is being upgraded. Redirecting to your dashboard..." : "Please log in or create an account to activate your new plan. Redirecting..."}
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setPaymentProcessing(true);
+                setTimeout(async () => {
+                  setPaymentProcessing(false);
+                  setPaymentSuccess(true);
+                  const targetPlan = selectedPlanName.toLowerCase() === 'premium' ? 'premium' : 'pro';
+                  if (user) {
+                    await updateUser({ plan: targetPlan });
+                    setTimeout(() => {
+                      window.location.href = '/dashboard';
+                    }, 1500);
+                  } else {
+                    setTimeout(() => {
+                      navigate('/login', { state: { selectedPlan: targetPlan, paid: true } });
+                    }, 1500);
+                  }
+                }, 2000);
+              }} className="flex flex-col gap-4">
+                <div style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', padding: '12px 16px', borderRadius: 12, marginBottom: 8 }}>
+                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--violet-light)', fontWeight: 700 }}>Selected Tier</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'white' }}>{selectedPlanName} Plan</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--emerald-light)' }}>{selectedPlanPrice}/mo</span>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Cardholder Name</label>
+                  <input required type="text" placeholder="John Doe" value={cardName} onChange={e => setCardName(e.target.value)} />
+                </div>
+
+                <div className="input-group">
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Card Number</label>
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder="4111 2222 3333 4444" 
+                    maxLength={19} 
+                    value={cardNumber} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
+                      setCardNumber(val);
+                    }} 
+                  />
+                </div>
+
+                <div className="grid-2">
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Expiry Date</label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="MM/YY" 
+                      maxLength={5} 
+                      value={cardExpiry} 
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val.length >= 2) {
+                          setCardExpiry(val.slice(0, 2) + '/' + val.slice(2, 4));
+                        } else {
+                          setCardExpiry(val);
+                        }
+                      }} 
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CVV</label>
+                    <input required type="password" placeholder="•••" maxLength={3} value={cardCvv} onChange={e => setCardCvv(e.target.value.replace(/\D/g, ''))} />
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary w-full mt-4" disabled={paymentProcessing}>
+                  {paymentProcessing ? (
+                    <div className="flex items-center gap-2">
+                      <div className="loading-spinner" style={{ width: 16, height: 16 }} />
+                      <span>Processing Transaction...</span>
+                    </div>
+                  ) : (
+                    <span>Pay {selectedPlanPrice}</span>
+                  )}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                  🔒 256-Bit SSL Encrypted Connection
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

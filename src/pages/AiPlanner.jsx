@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { generateTripPlan } from '../services/aiService';
+import { apiService } from '../services/apiService';
 import {
   Sparkles, Mic, Send, MapPin, Calendar, DollarSign, Users,
   Utensils, Plane, Hotel, Activity, Package, ChevronDown,
@@ -69,13 +70,22 @@ export default function AiPlanner() {
 
   const toggleDay = (idx) => setExpandedDays(p => ({ ...p, [idx]: !p[idx] }));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!tripData) return;
-    const trips = JSON.parse(localStorage.getItem('tl_ai_trips') || '[]');
-    trips.push({ ...tripData, id: Date.now(), savedAt: new Date().toISOString(), prompt });
-    localStorage.setItem('tl_ai_trips', JSON.stringify(trips));
-    setSaved(true);
-    setTimeout(() => navigate('/my-trips'), 1500);
+    try {
+      await apiService.trips.create({
+        name: tripData.tripTitle || 'AI Trip',
+        description: tripData.destination || '',
+        startDate: new Date().toISOString(),
+        endDate: new Date(Date.now() + (tripData.duration || 1) * 86400000).toISOString(),
+        visibility: 'PRIVATE',
+        aiData: { ...tripData, prompt }
+      });
+      setSaved(true);
+      setTimeout(() => navigate('/my-trips'), 1500);
+    } catch (e) {
+      console.error('Failed to save trip', e);
+    }
   };
 
   const formatINR = (n) => `₹${Number(n).toLocaleString('en-IN')}`;

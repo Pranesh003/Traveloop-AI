@@ -1,6 +1,6 @@
 import { db } from './mockDatabase';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE ? `${import.meta.env.VITE_API_BASE}/api` : 'http://localhost:5000/api';
 
 const getHeaders = (hasBody = false) => {
   const headers = {};
@@ -21,58 +21,67 @@ const createCrudMethods = (resource) => ({
       const response = await fetch(`${API_BASE_URL}/${resource}`, {
         headers: getHeaders()
       });
+      if (response.status === 401) {
+        localStorage.removeItem('tl_token');
+        localStorage.removeItem('tl_user');
+        window.location.href = '/login';
+        throw new Error('Unauthorized');
+      }
       if (response.ok) {
         const data = await response.json();
         const resData = data.data ?? data;
-        if (Array.isArray(resData)) {
-          apiData = resData;
-        }
+        return Array.isArray(resData) ? resData : [];
       }
+      throw new Error(`API error: ${response.status}`);
     } catch (error) {
       console.error(`Fetch error for ${resource}:`, error);
+      return [];
     }
-    
-    // Get mock DB data
-    const mockData = db.getItems(resource);
-    
-    // Merge them: prioritize items with the same ID or name/city
-    const merged = [...apiData];
-    mockData.forEach(mockItem => {
-      // Check if it's already in the API list (match by ID, or name/city)
-      const exists = apiData.some(apiItem => 
-        apiItem.id === mockItem.id || 
-        (apiItem.name && apiItem.name.toLowerCase() === (mockItem.city || mockItem.name || '').toLowerCase()) ||
-        (apiItem.city && typeof apiItem.city === 'object' && apiItem.city.name && apiItem.city.name.toLowerCase() === (mockItem.city || '').toLowerCase())
-      );
-      if (!exists) {
-        merged.push(mockItem);
+  },
+  getById: async (id) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/${resource}/${id}`, {
+        headers: getHeaders()
+      });
+      if (response.status === 401) {
+        localStorage.removeItem('tl_token');
+        localStorage.removeItem('tl_user');
+        window.location.href = '/login';
+        throw new Error('Unauthorized');
       }
-    });
-    
-    return merged;
+      if (response.ok) {
+        const data = await response.json();
+        return data.data ?? data;
+      }
+      throw new Error(`API error: ${response.status}`);
+    } catch (error) {
+      console.error(`Fetch error for ${resource} id ${id}:`, error);
+      throw error;
+    }
   },
   create: async (data) => {
-    // Synchronize both mock DB and API
-    const mockItem = db.addItem(resource, data);
     try {
       const response = await fetch(`${API_BASE_URL}/${resource}`, {
         method: 'POST',
         headers: getHeaders(true),
         body: JSON.stringify(data)
       });
+      if (response.status === 401) {
+        localStorage.removeItem('tl_token');
+        localStorage.removeItem('tl_user');
+        window.location.href = '/login';
+        throw new Error('Unauthorized');
+      }
       if (response.ok) {
         const resData = await response.json();
-        const created = resData.data ?? resData;
-        // Keep IDs matched if backend assigned one
-        if (created && created.id) {
-          db.updateItem(resource, mockItem.id, created);
-          return created;
-        }
+        return resData.data ?? resData;
       }
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `API error: ${response.status}`);
     } catch (error) {
       console.error(`Create error for ${resource}:`, error);
+      throw error;
     }
-    return mockItem;
   },
   update: async (id, data) => {
     // Synchronize both mock DB and API
@@ -86,6 +95,12 @@ const createCrudMethods = (resource) => ({
       if (response.ok) {
         const resData = await response.json();
         return resData.data ?? resData;
+      }
+      if (response.status === 401) {
+        localStorage.removeItem('tl_token');
+        localStorage.removeItem('tl_user');
+        window.location.href = '/login';
+        throw new Error('Unauthorized');
       }
     } catch (error) {
       console.error(`Update error for ${resource}:`, error);
@@ -117,6 +132,9 @@ export const apiService = {
   // --- DESTINATIONS ---
   ...createCrudMethods('destinations'),
   destinations: createCrudMethods('destinations'),
+
+  // --- TRIPS ---
+  trips: createCrudMethods('trips'),
 
   // --- ACTIVITIES ---
   activities: createCrudMethods('activities'),

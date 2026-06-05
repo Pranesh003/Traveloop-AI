@@ -307,6 +307,7 @@ model Trip {
   shareToken  String?        @unique
   isArchived  Boolean        @default(false)
   tags        String[]
+  aiData      Json?
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 

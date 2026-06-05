@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { Plus, MapPin, Calendar, MoreVertical, Sparkles, Search, Filter, Trash2, Edit, Eye, Share2 } from 'lucide-react';
+import { apiService } from '../services/apiService';
 import './MyTrips.css';
 
 const ALL_TRIPS = [
@@ -19,68 +20,65 @@ export default function MyTrips() {
   const [filter, setFilter] = useState('all');
   const [openMenu, setOpenMenu] = useState(null);
 
-  const [tripsList, setTripsList] = useState(ALL_TRIPS);
+  const [tripsList, setTripsList] = useState([]);
 
   useEffect(() => {
-    try {
-      const manualTrips = JSON.parse(localStorage.getItem('tl_trips') || '[]');
-      const aiTrips = JSON.parse(localStorage.getItem('tl_ai_trips') || '[]');
+    const loadTrips = async () => {
+      try {
+        const apiTrips = await apiService.trips.getAll();
+        
+        const mappedTrips = apiTrips.map(t => {
+          let progress = 15;
+          let budget = 0;
+          let stops = t.stops?.length || 1;
+          let emoji = '🗺️';
+          let cover = 'linear-gradient(135deg,#0a3d0a,#1a5c1a,#0d7a0d)';
+          let destination = t.description || 'Unknown Destination';
+          
+          if (t.aiData) {
+            progress = 100;
+            emoji = '✨';
+            cover = 'linear-gradient(135deg,#7c3aed,#4c1d95,#2e1065)';
+            if (t.aiData.destination) destination = t.aiData.destination;
+            if (t.aiData.totalBudget) budget = t.aiData.totalBudget;
+            if (t.aiData.itinerary) stops = t.aiData.itinerary.length;
+          }
 
-      const formattedManual = manualTrips.map(t => ({
-        id: t.id,
-        title: t.title || 'Untitled Trip',
-        destination: t.destinations?.join(', ') || 'Unknown Destination',
-        startDate: t.startDate || new Date().toISOString(),
-        endDate: t.endDate || new Date().toISOString(),
-        status: 'planning',
-        emoji: '🗺️',
-        budget: parseInt(t.budget) || 0,
-        stops: t.destinations?.length || 1,
-        progress: 15,
-        cover: 'linear-gradient(135deg,#0a3d0a,#1a5c1a,#0d7a0d)',
-        isAi: false,
-        isStatic: false
-      }));
-
-      const formattedAi = aiTrips.map(t => ({
-        id: t.id,
-        title: t.tripTitle || 'AI Generated Trip',
-        destination: t.destination || 'Unknown',
-        startDate: t.savedAt || new Date().toISOString(),
-        endDate: new Date(new Date(t.savedAt || Date.now()).getTime() + (t.duration || 1) * 86400000).toISOString(),
-        status: 'planning',
-        emoji: '✨',
-        budget: t.totalBudget || 0,
-        stops: t.itinerary?.length || 1,
-        progress: 100,
-        cover: 'linear-gradient(135deg,#7c3aed,#4c1d95,#2e1065)',
-        isAi: true,
-        isStatic: false
-      }));
-
-      const staticTrips = ALL_TRIPS.map(t => ({ ...t, isAi: false, isStatic: true }));
-      setTripsList([...formattedAi, ...formattedManual, ...staticTrips]);
-    } catch (e) {}
+          return {
+            id: t.id,
+            title: t.name || 'Untitled Trip',
+            destination: destination,
+            startDate: t.startDate || t.createdAt,
+            endDate: t.endDate || new Date(new Date(t.createdAt).getTime() + 86400000).toISOString(),
+            status: t.status === 'DRAFT' ? 'planning' : t.status.toLowerCase(),
+            emoji,
+            budget,
+            stops,
+            progress,
+            cover,
+            isAi: !!t.aiData,
+            isStatic: false
+          };
+        });
+        
+        setTripsList(mappedTrips);
+      } catch (e) {
+        console.error("Failed to load trips", e);
+      }
+    };
+    loadTrips();
   }, []);
 
-  const handleDeleteTrip = (tripId, isAi = false, isStatic = false) => {
+  const handleDeleteTrip = async (tripId, isAi = false, isStatic = false) => {
     if (window.confirm("Are you sure you want to delete this trip plan?")) {
       try {
         if (!isStatic) {
-          if (isAi) {
-            const aiTrips = JSON.parse(localStorage.getItem('tl_ai_trips') || '[]');
-            const updated = aiTrips.filter(t => t.id !== tripId);
-            localStorage.setItem('tl_ai_trips', JSON.stringify(updated));
-          } else {
-            const manualTrips = JSON.parse(localStorage.getItem('tl_trips') || '[]');
-            const updated = manualTrips.filter(t => t.id !== tripId);
-            localStorage.setItem('tl_trips', JSON.stringify(updated));
-          }
+          await apiService.trips.delete(tripId);
         }
         setTripsList(prev => prev.filter(t => t.id !== tripId));
         setOpenMenu(null);
       } catch (e) {
-        console.error(e);
+        console.error('Failed to delete trip:', e);
       }
     }
   };

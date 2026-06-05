@@ -14,8 +14,8 @@ const TRAVEL_QUOTES = [
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const { login, register, updateUser } = useAuth();
+  const [isLogin, setIsLogin] = useState(location.state?.mode !== 'signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -41,6 +41,10 @@ export default function Login() {
       }
       
       if (result.success) {
+        if (location.state?.paid && location.state?.selectedPlan) {
+          await updateUser({ plan: location.state.selectedPlan });
+        }
+        
         let dest = location.state?.from;
         if (!dest) {
           if (result.user.role === 'super_admin' || result.user.role === 'admin') {
@@ -65,6 +69,10 @@ export default function Login() {
     const emails = { user: 'demo@traveloop.com', premium: 'premium@traveloop.com', admin: 'admin@traveloop.com' };
     const result = await login(emails[role], 'demo123');
     if (result.success) {
+      if (location.state?.paid && location.state?.selectedPlan) {
+        await updateUser({ plan: location.state.selectedPlan });
+      }
+      
       if (result.user.role === 'super_admin' || result.user.role === 'admin') {
         navigate('/admin', { replace: true });
       } else {
@@ -119,13 +127,13 @@ export default function Login() {
           {/* Demo Login */}
           <div className="demo-btns">
             <button className="demo-btn" onClick={() => handleDemoLogin('user')} disabled={loading}>
-              👤 Try as Free User
+              👤 Demo: Free Account
             </button>
             <button className="demo-btn" style={{ background: 'var(--gradient-violet)', color: 'white', border: 'none' }} onClick={() => handleDemoLogin('premium')} disabled={loading}>
-              ⭐ Try as Premium User
+              ⭐ Demo: Premium Account
             </button>
             <button className="demo-btn demo-btn-admin" onClick={() => handleDemoLogin('admin')} disabled={loading}>
-              🛡️ Try as Admin
+              🛡️ Demo: Admin Account
             </button>
           </div>
 

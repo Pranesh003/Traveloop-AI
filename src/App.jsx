@@ -47,7 +47,7 @@ function PageLoader() {
 }
 
 // Protected route wrapper with permission support
-function ProtectedRoute({ children, requiredPermission, requiredRole }) {
+function ProtectedRoute({ children, requiredPermission, requiredRole, requiredPlan }) {
   const { user, loading, hasPermission, hasAnyRole } = useAuth();
   if (loading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
@@ -60,6 +60,15 @@ function ProtectedRoute({ children, requiredPermission, requiredRole }) {
     return <Navigate to="/dashboard" replace />;
   }
 
+  if (requiredPlan) {
+    const plansHierarchy = { free: 1, premium: 2, pro: 3 };
+    const userPlanLevel = plansHierarchy[user.plan || 'free'] || 1;
+    const requiredPlanLevel = plansHierarchy[requiredPlan] || 1;
+    if (userPlanLevel < requiredPlanLevel) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
   return children;
 }
 
@@ -70,12 +79,12 @@ function AppRoutes() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Public */}
-        <Route path="/" element={user ? (user.role === 'super_admin' || user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />) : <Landing />} />
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={user ? (user.role === 'super_admin' || user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/dashboard" replace />) : <Login />} />
 
         {/* Protected - Base Level */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/ai-planner" element={<ProtectedRoute><AiPlanner /></ProtectedRoute>} />
+        <Route path="/ai-planner" element={<ProtectedRoute requiredPlan="premium"><AiPlanner /></ProtectedRoute>} />
         <Route path="/my-trips" element={<ProtectedRoute><MyTrips /></ProtectedRoute>} />
         <Route path="/create-trip" element={<ProtectedRoute><CreateTrip /></ProtectedRoute>} />
         <Route path="/trip/:tripId" element={<ProtectedRoute><TripDetails /></ProtectedRoute>} />
@@ -83,9 +92,9 @@ function AppRoutes() {
         <Route path="/budget/:tripId" element={<ProtectedRoute><Budget /></ProtectedRoute>} />
         <Route path="/checklist/:tripId" element={<ProtectedRoute><PackingChecklist /></ProtectedRoute>} />
         <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
-        <Route path="/ai-chat" element={<ProtectedRoute><AiChat /></ProtectedRoute>} />
+        <Route path="/ai-chat" element={<ProtectedRoute requiredPlan="premium"><AiChat /></ProtectedRoute>} />
         <Route path="/journal/:tripId" element={<ProtectedRoute><Journal /></ProtectedRoute>} />
-        <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+        <Route path="/calendar" element={<ProtectedRoute requiredPlan="pro"><Calendar /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
         {/* Admin Modules */}

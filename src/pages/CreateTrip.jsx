@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SidebarLayout from '../components/SidebarLayout';
 import { Sparkles, MapPin, Calendar, DollarSign, Users, Compass, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { apiService } from '../services/apiService';
 import './CreateTrip.css';
 
 const TRAVEL_STYLES = ['Adventure', 'Relaxation', 'Cultural', 'Food & Culinary', 'Photography', 'Backpacking', 'Luxury', 'Family', 'Romantic', 'Business'];
@@ -33,11 +34,22 @@ export default function CreateTrip() {
     e.preventDefault();
     if (step < 2) { setStep(s => s + 1); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1000));
-    const newTrip = { id: Date.now(), ...form, userId: user?.id || 1, createdAt: new Date().toISOString() };
-    const existing = JSON.parse(localStorage.getItem('tl_trips') || '[]');
-    localStorage.setItem('tl_trips', JSON.stringify([...existing, newTrip]));
-    navigate('/my-trips');
+    try {
+      await apiService.trips.create({
+        name: form.title,
+        description: form.description || form.destinations.join(', '),
+        startDate: form.startDate ? new Date(form.startDate).toISOString() : new Date().toISOString(),
+        endDate: form.endDate ? new Date(form.endDate).toISOString() : new Date().toISOString(),
+        visibility: form.privacy.toUpperCase(),
+        tags: [form.travelStyle, form.companions].filter(Boolean),
+        aiData: { ...form }
+      });
+      navigate('/my-trips');
+    } catch (e) {
+      console.error('Failed to create trip', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

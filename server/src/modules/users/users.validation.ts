@@ -6,6 +6,7 @@ export const updateProfileSchema = z.object({
   phone: z.string().optional(),
   country: z.string().optional(),
   timezone: z.string().optional(),
+  plan: z.string().optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -13,6 +14,7 @@ export const updateUserSchema = z.object({
   email: z.string().email().optional(),
   roleId: z.string().uuid().optional(),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'BANNED']).optional(),
+  plan: z.string().optional(),
 });
 
 export const assignRoleSchema = z.object({

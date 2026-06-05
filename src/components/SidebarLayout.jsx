@@ -13,7 +13,7 @@ import './SidebarLayout.css';
 export default function SidebarLayout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout, hasPermission, hasAnyRole } = useAuth();
+  const { user, logout, hasPermission, hasAnyRole, isPremium } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -46,9 +46,14 @@ export default function SidebarLayout({ children }) {
     // Admins/Super Admins see adminNav ONLY (no core user features)
     if (user?.role === 'admin' || user?.role === 'super_admin') return false;
 
-    // Premium users see premium only features
-    if (user?.plan === 'premium') {
-      return ['Dashboard', 'AI Planner', 'AI Chat', 'Calendar', 'My Trips', 'New Trip'].includes(item.label);
+    // Pro users see everything
+    if (user?.plan === 'pro') {
+      return true;
+    }
+
+    // Premium users see premium only features (excludes Calendar)
+    if (isPremium) {
+      return ['Dashboard', 'AI Planner', 'AI Chat', 'My Trips', 'New Trip', 'Explore'].includes(item.label);
     }
 
     // Free users see basic features

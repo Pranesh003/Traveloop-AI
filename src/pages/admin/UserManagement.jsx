@@ -29,6 +29,17 @@ export default function UserManagement() {
     }
   };
 
+  const handlePlanChange = async (userId, newPlan) => {
+    const user = users.find(u => u.id === userId);
+    if (user) {
+      const updatedUser = { ...user, plan: newPlan };
+      const updated = await apiService.updateUser(userId, updatedUser);
+      if (updated) {
+        setUsers(users.map(u => u.id === userId ? updated : u));
+      }
+    }
+  };
+
   const handleDeleteUser = async (userId) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
       const success = await apiService.deleteUser(userId);
@@ -108,6 +119,7 @@ export default function UserManagement() {
               <tr className="border-b border-white/10 bg-white/5">
                 <th className="p-5 text-sm text-gray-400 font-semibold tracking-wide">USER INFO</th>
                 <th className="p-5 text-sm text-gray-400 font-semibold tracking-wide">ROLE</th>
+                <th className="p-5 text-sm text-gray-400 font-semibold tracking-wide">PLAN</th>
                 <th className="p-5 text-sm text-gray-400 font-semibold tracking-wide">STATUS</th>
                 <th className="p-5 text-sm text-gray-400 font-semibold tracking-wide text-right">ACTIONS</th>
               </tr>
@@ -142,6 +154,23 @@ export default function UserManagement() {
                     ) : (
                       <span className={`badge ${u.role === ROLES.SUPER_ADMIN ? 'bg-red-500/20 text-red-400 border border-red-500/20' : u.role === ROLES.ADMIN ? 'badge-violet' : 'badge-cyan'}`}>
                         {u.role.replace('_', ' ').toUpperCase()}
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-5">
+                    {isSuperAdmin && u.id !== 1 ? (
+                      <select 
+                        value={u.plan || 'free'}
+                        onChange={(e) => handlePlanChange(u.id, e.target.value)}
+                        className="bg-black/40 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
+                      >
+                        <option value="free" className="bg-gray-900 text-white">FREE</option>
+                        <option value="premium" className="bg-gray-900 text-white">PREMIUM</option>
+                        <option value="pro" className="bg-gray-900 text-white">PRO</option>
+                      </select>
+                    ) : (
+                      <span className={`badge ${(u.plan || 'free') === 'pro' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/20' : (u.plan || 'free') === 'premium' ? 'badge-violet' : 'badge-cyan'}`}>
+                        {(u.plan || 'free').toUpperCase()}
                       </span>
                     )}
                   </td>

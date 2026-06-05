@@ -30,9 +30,10 @@ const initialData = {
     { id: 3, type: 'Shared Trip', user: 'mike99', reason: 'Self Promotion', date: '1 day ago', status: 'Resolved' }
   ],
   plans: [
-    { id: 1, name: 'Free', price: '₹0', users: '12,450', features: ['Basic AI Planner', '3 Trips/month', 'Public Itineraries'] },
-    { id: 2, name: 'Premium', price: '₹499/mo', users: '3,210', features: ['Advanced AI Models', 'Unlimited Trips', 'Offline Access', 'Collab Mode'], popular: true },
-    { id: 3, name: 'Enterprise', price: 'Custom', users: '45', features: ['API Access', 'Dedicated Account Manager', 'White Labeling', 'Advanced Analytics'] }
+    { id: 1, name: 'Free', price: '₹0', users: '12,450', features: ['Max 3 active trips', 'Basic AI planner', 'Public itineraries', '500 MB storage', 'Community support'] },
+    { id: 2, name: 'Premium', price: '₹299/mo', users: '3,210', features: ['Unlimited trips', 'Full AI planner', 'Collaboration', 'Budget tracking', 'Travel journal', 'Priority support'], popular: true },
+    { id: 3, name: 'Pro', price: '₹799/mo', users: '840', features: ['Everything in Premium', 'AI agents', 'Price prediction', 'Advanced analytics', 'API access', 'White-label options'] },
+    { id: 4, name: 'Enterprise', price: 'Custom', users: '45', features: ['Agency Dashboard', 'CRM & Lead tracking', 'Vendor management', 'White Label', 'Dedicated manager'] }
   ],
   tickets: [
     { id: '#T-1042', user: 'jane_smith', subject: 'Billing Issue - Charged Twice', status: 'Open', priority: 'High', time: '2h ago' },

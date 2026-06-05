@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 import SidebarLayout from '../components/SidebarLayout';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Plus, Trash2, DollarSign, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
@@ -19,13 +20,61 @@ const BUDGET_TOTAL = 150000;
 
 export default function Budget() {
   const { tripId } = useParams();
-  const [expenses, setExpenses] = useState(DEMO_EXPENSES);
+  const [trip, setTrip] = useState(null);
+  const [expenses, setExpenses] = useState([]);
+  const [budgetTotal, setBudgetTotal] = useState(150000);
+  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ category: 'Food', amount: '', description: '', date: '' });
 
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const data = await apiService.trips.getById(tripId);
+        setTrip(data);
+        const aiData = typeof data?.aiData === 'string' ? JSON.parse(data.aiData) : data?.aiData;
+        if (aiData) {
+          setBudgetTotal(aiData.totalBudget || 150000);
+          if (aiData.expenses) {
+            setExpenses(aiData.expenses);
+          } else if (aiData.budget) {
+            // Initialize from ai estimation
+            const initExp = Object.entries(aiData.budget).map(([cat, amt], i) => ({
+              id: Date.now() + i,
+              category: cat.charAt(0).toUpperCase() + cat.slice(1),
+              amount: amt,
+              description: `Estimated ${cat}`,
+              date: new Date(data.startDate || Date.now()).toISOString().split('T')[0]
+            }));
+            setExpenses(initExp);
+            // Save initialized
+            const updatedAiData = { ...aiData, expenses: initExp };
+            await apiService.trips.update(tripId, { aiData: updatedAiData });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load trip', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrip();
+  }, [tripId]);
+
+  const saveExpensesToBackend = async (updatedExpenses) => {
+    if (!trip) return;
+    try {
+      const updatedAiData = { ...trip.aiData, expenses: updatedExpenses };
+      await apiService.trips.update(tripId, { aiData: updatedAiData });
+      setTrip({ ...trip, aiData: updatedAiData });
+    } catch (e) {
+      console.error('Failed to save expenses', e);
+    }
+  };
+
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
-  const remaining = BUDGET_TOTAL - totalSpent;
-  const pct = Math.round((totalSpent / BUDGET_TOTAL) * 100);
+  const remaining = budgetTotal - totalSpent;
+  const pct = budgetTotal > 0 ? Math.round((totalSpent / budgetTotal) * 100) : 0;
 
   const byCategory = CATEGORIES.map((cat, i) => ({
     name: cat,
@@ -33,11 +82,19 @@ export default function Budget() {
     color: CAT_COLORS[i],
   })).filter(c => c.value > 0);
 
-  const addExpense = () => {
+  const addExpense = async () => {
     if (!form.amount || !form.description) return;
-    setExpenses(p => [...p, { id: Date.now(), ...form, amount: parseFloat(form.amount) }]);
+    const newExpenses = [...expenses, { id: Date.now(), ...form, amount: parseFloat(form.amount) }];
+    setExpenses(newExpenses);
     setForm({ category: 'Food', amount: '', description: '', date: '' });
     setShowAdd(false);
+    await saveExpensesToBackend(newExpenses);
+  };
+  
+  const removeExpense = async (expId) => {
+    const newExpenses = expenses.filter(e => e.id !== expId);
+    setExpenses(newExpenses);
+    await saveExpensesToBackend(newExpenses);
   };
 
   const fmtINR = (n) => `₹${Number(n).toLocaleString('en-IN')}`;
@@ -48,7 +105,9 @@ export default function Budget() {
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3 animate-fade-in">
           <div>
             <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>💰 Budget Dashboard</h1>
-            <p className="text-secondary">Trip #{tripId} · Budget tracking & analysis</p>
+            {loading ? <p className="text-secondary">Loading...</p> : (
+              <p className="text-secondary">{trip?.name || `Trip #${tripId}`} · Budget tracking & analysis</p>
+            )}
           </div>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(!showAdd)}>
             <Plus size={14} /> Add Expense
@@ -92,7 +151,7 @@ export default function Budget() {
         {/* Summary Stats */}
         <div className="grid-4 mb-6 stagger animate-fade-in" style={{ animationDelay: '0.1s' }}>
           {[
-            { label: 'Total Budget', value: fmtINR(BUDGET_TOTAL), icon: DollarSign, color: 'var(--violet)', bg: 'rgba(124,58,237,0.1)' },
+            { label: 'Total Budget', value: fmtINR(budgetTotal), icon: DollarSign, color: 'var(--violet)', bg: 'rgba(124,58,237,0.1)' },
             { label: 'Amount Spent', value: fmtINR(totalSpent), icon: TrendingDown, color: 'var(--orange)', bg: 'rgba(249,115,22,0.1)' },
             { label: 'Remaining', value: fmtINR(remaining), icon: TrendingUp, color: remaining > 0 ? 'var(--emerald)' : 'var(--rose)', bg: remaining > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(244,63,94,0.1)' },
             { label: 'Spent So Far', value: `${pct}%`, icon: TrendingDown, color: pct > 80 ? 'var(--rose)' : 'var(--cyan)', bg: 'rgba(6,182,212,0.1)' },
@@ -147,7 +206,7 @@ export default function Budget() {
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{exp.category} · {exp.date || 'N/A'}</div>
                   </div>
                   <div style={{ fontWeight: 700, color: 'var(--orange-light)', fontSize: '0.9rem', flexShrink: 0 }}>{fmtINR(exp.amount)}</div>
-                  <button onClick={() => setExpenses(p => p.filter(e => e.id !== exp.id))} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <button onClick={() => removeExpense(exp.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     <Trash2 size={14} />
                   </button>
                 </div>

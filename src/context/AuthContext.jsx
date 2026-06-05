@@ -42,7 +42,14 @@ export function AuthProvider({ children }) {
         }
         
         // Map backend subscription plan if it exists
-        userObj.plan = userObj.plan || (userObj.subscriptions && userObj.subscriptions[0]?.plan?.toLowerCase()) || (userObj.email === 'premium@traveloop.com' ? 'premium' : 'free');
+        let backendPlan = userObj.subscriptions?.[0]?.plan?.toLowerCase();
+        if (backendPlan === 'enterprise') backendPlan = 'pro';
+        
+        let inferredPlan = 'free';
+        if (userObj.role === 'PREMIUM_USER') inferredPlan = 'premium';
+        if (['SUPER_ADMIN', 'ADMIN', 'TRAVEL_EXPERT', 'CONTENT_MANAGER'].includes(userObj.role)) inferredPlan = 'pro';
+        
+        userObj.plan = userObj.plan || backendPlan || inferredPlan;
         
         localStorage.setItem('tl_token', token);
         localStorage.setItem('tl_user', JSON.stringify(userObj));
@@ -50,29 +57,42 @@ export function AuthProvider({ children }) {
         setToken(token);
         return { success: true, user: userObj };
       }
+      if (!res.ok) {
+        // Try to register if login failed (for seamless testing)
+        if (res.status === 401 || res.status === 404) {
+          const name = email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const regRes = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}/api/auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email, password }),
+          });
+          const regData = await regRes.json();
+          if (regRes.ok) {
+            const token = regData.token || regData.data?.accessToken;
+            const userObj = regData.user || regData.data?.user;
+            if (token && userObj) {
+              let backendPlan = userObj.subscriptions?.[0]?.plan?.toLowerCase();
+              if (backendPlan === 'enterprise') backendPlan = 'pro';
+              
+              let inferredPlan = 'free';
+              if (userObj.role === 'PREMIUM_USER') inferredPlan = 'premium';
+              if (['SUPER_ADMIN', 'ADMIN', 'TRAVEL_EXPERT', 'CONTENT_MANAGER'].includes(userObj.role)) inferredPlan = 'pro';
+              
+              userObj.plan = userObj.plan || backendPlan || inferredPlan;
+              localStorage.setItem('tl_token', token);
+              localStorage.setItem('tl_user', JSON.stringify(userObj));
+              setUser(userObj);
+              setToken(token);
+              return { success: true, user: userObj };
+            }
+          }
+        }
+        return { success: false, error: data.message || 'Invalid credentials' };
+      }
     } catch (err) {
       console.error("Login API error:", err);
+      return { success: false, error: 'Network error. Backend might be down.' };
     }
-    
-    // Check if the user exists in our mock DB
-    let mockUser = db.getUserByEmail(email);
-    
-    if (!mockUser) {
-      // Create a default FREE_USER if they don't exist
-      mockUser = db.addUser({
-        email,
-        name: email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-        role: ROLES.USER,
-        plan: email === 'premium@traveloop.com' ? 'premium' : 'free'
-      });
-    }
-
-    const mockToken = 'mock_token_' + Date.now();
-    localStorage.setItem('tl_token', mockToken);
-    localStorage.setItem('tl_user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setToken(mockToken);
-    return { success: true, user: mockUser };
   };
 
   const register = async (name, email, password) => {
@@ -87,31 +107,16 @@ export function AuthProvider({ children }) {
         // Automatically log in after registration
         return await login(email, password);
       } else {
-        return { success: false, error: data.message || 'Registration failed' };
+        let errorMsg = data.message || 'Registration failed';
+        if (data.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+          errorMsg = data.errors.map(e => e.message).join('; ');
+        }
+        return { success: false, error: errorMsg };
       }
     } catch (err) {
       console.error("Register API error:", err);
+      return { success: false, error: 'Network error. Backend might be down.' };
     }
-
-    // Mock DB registration fallback
-    let mockUser = db.getUserByEmail(email);
-    if (mockUser) {
-      return { success: false, error: 'User already exists.' };
-    }
-    mockUser = db.addUser({
-      email,
-      name,
-      role: ROLES.USER,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    });
-    
-    const mockToken = 'mock_token_' + Date.now();
-    localStorage.setItem('tl_token', mockToken);
-    localStorage.setItem('tl_user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setToken(mockToken);
-    return { success: true, user: mockUser };
   };
 
   const logout = () => {
@@ -121,12 +126,39 @@ export function AuthProvider({ children }) {
     setToken(null);
   };
 
-  const updateUser = (updates) => {
-    const updated = { ...user, ...updates };
+  const updateUser = async (updates) => {
+    const currentUser = user || JSON.parse(localStorage.getItem('tl_user') || '{}');
+    const updated = { ...currentUser, ...updates };
     // Also update in mock DB if it exists
-    if (user && user.id) {
-       db.updateUser(user.id, updates);
+    if (currentUser && currentUser.id) {
+       db.updateUser(currentUser.id, updates);
     }
+    
+    const token = localStorage.getItem('tl_token');
+    if (token && !token.startsWith('mock_')) {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}/api/users/me`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates),
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          const updatedUserObj = resData.data ?? resData;
+          if (updatedUserObj) {
+            let backendPlan = updatedUserObj.subscriptions?.[0]?.plan?.toLowerCase();
+            if (backendPlan === 'enterprise') backendPlan = 'pro';
+            updated.plan = backendPlan || updated.plan;
+          }
+        }
+      } catch (err) {
+        console.error("Failed to update user in backend database:", err);
+      }
+    }
+    
     localStorage.setItem('tl_user', JSON.stringify(updated));
     setUser(updated);
   };
@@ -155,7 +187,7 @@ export function AuthProvider({ children }) {
       hasAnyRole,
       isSuperAdmin: user?.role === ROLES.SUPER_ADMIN,
       isAdmin: user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN,
-      isPremium: user?.plan === 'premium'
+      isPremium: user?.plan && user.plan !== 'free'
     }}>
       {children}
     </AuthContext.Provider>

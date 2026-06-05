@@ -3,21 +3,44 @@ import { useParams, useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { MapPin, Calendar, DollarSign, Users, Edit, Share2, Map, Package, BookOpen, ChevronRight } from 'lucide-react';
 
-const TRIP = {
-  id: 1, title: 'Japan Discovery', destination: 'Tokyo & Kyoto, Japan', emoji: '🗾',
-  startDate: '2026-10-15', endDate: '2026-10-25', budget: 150000, spent: 48000,
-  stops: 5, activities: 14, travelStyle: 'Cultural & Food', companions: 'Solo',
-  description: 'An unforgettable 10-day journey through Japan, exploring ancient temples, futuristic cities, and authentic street food culture.',
-  cover: 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)',
-  stops_list: ['Tokyo', 'Nikko', 'Hakone', 'Kyoto', 'Osaka'],
-};
+import { apiService } from '../services/apiService';
 
 export default function TripDetails() {
   const { tripId } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('overview');
-  const remaining = TRIP.budget - TRIP.spent;
-  const pct = Math.round((TRIP.spent / TRIP.budget) * 100);
+  const [trip, setTrip] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    apiService.trips.getById(tripId).then(data => {
+      setTrip(data);
+      setLoading(false);
+    }).catch(e => {
+      console.error(e);
+      setLoading(false);
+    });
+  }, [tripId]);
+
+  if (loading) return <SidebarLayout><div className="p-8 text-center text-secondary animate-pulse">Loading trip details...</div></SidebarLayout>;
+  if (!trip) return <SidebarLayout><div className="p-8 text-center text-red-500">Trip not found</div></SidebarLayout>;
+
+  const ai = trip.aiData || {};
+  const budget = ai.totalBudget || 150000;
+  const spent = (ai.expenses || []).reduce((s, e) => s + e.amount, 0);
+  const remaining = budget - spent;
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+  const stopsCount = ai.itinerary?.length || 0;
+  const activitiesCount = ai.itinerary?.reduce((sum, d) => sum + (d.activities?.length || 0), 0) || 0;
+  const stopsList = ai.itinerary?.map(d => d.city) || [];
+  
+  const cover = 'linear-gradient(135deg, #1a1a2e, #16213e, #0f3460)';
+  const emoji = '🗺️';
+  const title = trip.name || 'My Trip';
+  const destination = trip.description || 'Unknown Destination';
+  const startDateStr = trip.startDate ? new Date(trip.startDate).toLocaleDateString() : '';
+  const endDateStr = trip.endDate ? new Date(trip.endDate).toLocaleDateString() : '';
+  const dates = startDateStr && endDateStr ? `${startDateStr} - ${endDateStr}` : 'Dates TBA';
 
   const TABS = [
     { id: 'overview', label: '📊 Overview' },
@@ -31,16 +54,16 @@ export default function TripDetails() {
     <SidebarLayout>
       <div className="page-container">
         {/* Hero */}
-        <div style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', background: TRIP.cover, minHeight: 220, position: 'relative', display: 'flex', alignItems: 'flex-end' }} className="animate-fade-in">
+        <div style={{ borderRadius: 'var(--radius-2xl)', overflow: 'hidden', marginBottom: 'var(--space-6)', background: cover, minHeight: 220, position: 'relative', display: 'flex', alignItems: 'flex-end' }} className="animate-fade-in">
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.8) 100%)' }} />
-          <span style={{ position: 'absolute', top: 'var(--space-6)', left: 'var(--space-6)', fontSize: '4rem' }}>{TRIP.emoji}</span>
-          <div style={{ position: 'relative', padding: 'var(--space-6)', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+          <span style={{ position: 'absolute', top: 'var(--space-6)', left: 'var(--space-6)', fontSize: '4rem' }}>{emoji}</span>
+          <div style={{ position: 'relative', padding: 'var(--space-6)', width: '100%', display: 'flex', justify-content: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'white', marginBottom: 8 }}>{TRIP.title}</h1>
+              <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'white', marginBottom: 8 }}>{title}</h1>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={14} /> {TRIP.destination}</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={14} /> Oct 15 – Oct 25, 2026</span>
-                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {TRIP.companions}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={14} /> {destination}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><Calendar size={14} /> {dates}</span>
+                <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 6 }}><Users size={14} /> {ai.companions || 'Solo'}</span>
               </div>
             </div>
             <div className="flex gap-3">
@@ -53,10 +76,10 @@ export default function TripDetails() {
         {/* Stats Row */}
         <div className="grid-4 mb-6 stagger animate-fade-in" style={{ animationDelay: '0.1s' }}>
           {[
-            { label: 'Total Budget', value: `₹${(TRIP.budget / 1000).toFixed(0)}K`, icon: DollarSign, color: 'var(--violet)', bg: 'rgba(124,58,237,0.1)' },
-            { label: 'Spent So Far', value: `₹${(TRIP.spent / 1000).toFixed(0)}K`, icon: DollarSign, color: 'var(--orange)', bg: 'rgba(249,115,22,0.1)' },
-            { label: 'Stops', value: TRIP.stops, icon: MapPin, color: 'var(--cyan)', bg: 'rgba(6,182,212,0.1)' },
-            { label: 'Activities', value: TRIP.activities, icon: Calendar, color: 'var(--emerald)', bg: 'rgba(16,185,129,0.1)' },
+            { label: 'Total Budget', value: `₹${(budget / 1000).toFixed(0)}K`, icon: DollarSign, color: 'var(--violet)', bg: 'rgba(124,58,237,0.1)' },
+            { label: 'Spent So Far', value: `₹${(spent / 1000).toFixed(0)}K`, icon: DollarSign, color: 'var(--orange)', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Stops', value: stopsCount, icon: MapPin, color: 'var(--cyan)', bg: 'rgba(6,182,212,0.1)' },
+            { label: 'Activities', value: activitiesCount, icon: Calendar, color: 'var(--emerald)', bg: 'rgba(16,185,129,0.1)' },
           ].map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="stat-card">
               <div className="stat-icon" style={{ background: bg, color }}><Icon size={20} /></div>
@@ -98,25 +121,25 @@ export default function TripDetails() {
             <div className="grid-2 gap-6">
               <div className="glass-card p-5">
                 <h3 className="mb-4">About this Trip</h3>
-                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>{TRIP.description}</p>
+                <p style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>{trip.description || 'An amazing journey.'}</p>
                 <div className="flex flex-wrap gap-2 mt-4">
-                  {[TRIP.travelStyle, TRIP.companions, '10 days'].map(tag => <span key={tag} className="tag active">{tag}</span>)}
+                  {[ai.travelStyle || 'Explore', ai.companions || 'Solo'].map(tag => <span key={tag} className="tag active">{tag}</span>)}
                 </div>
               </div>
               <div className="glass-card p-5">
                 <h3 className="mb-4">Route</h3>
-                {TRIP.stops_list.map((stop, i) => (
+                {stopsList.length > 0 ? stopsList.map((stop, i) => (
                   <div key={stop} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--gradient-violet)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 800, color: 'white', flexShrink: 0 }}>{i + 1}</div>
                     <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{stop}</span>
-                    {i < TRIP.stops_list.length - 1 && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.75rem' }}>→ Next</span>}
+                    {i < stopsList.length - 1 && <span style={{ marginLeft: 'auto', color: 'var(--text-muted)', fontSize: '0.75rem' }}>→ Next</span>}
                   </div>
-                ))}
+                )) : <p className="text-secondary text-sm">No route planned yet.</p>}
               </div>
               <div className="glass-card p-5">
                 <h3 className="mb-3">Budget Progress</h3>
                 <div className="flex justify-between mb-2">
-                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>₹{TRIP.spent.toLocaleString('en-IN')} of ₹{TRIP.budget.toLocaleString('en-IN')}</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>₹{spent.toLocaleString('en-IN')} of ₹{budget.toLocaleString('en-IN')}</span>
                   <span style={{ fontWeight: 700, color: pct > 80 ? 'var(--rose)' : 'var(--emerald)' }}>{pct}%</span>
                 </div>
                 <div className="progress-bar" style={{ height: 8 }}>

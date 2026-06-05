@@ -18,10 +18,22 @@ export const usersService = {
     return user;
   },
 
-  async updateMyProfile(userId: string, data: Record<string, unknown>) {
+  async updateMyProfile(userId: string, data: Record<string, any>) {
+    const { plan, ...rest } = data;
+    if (plan) {
+      let cleanPlan = String(plan).toUpperCase();
+      if (cleanPlan === 'PRO') cleanPlan = 'ENTERPRISE';
+      await prisma.subscription.create({
+        data: {
+          userId,
+          plan: cleanPlan as any,
+          status: 'ACTIVE',
+        }
+      });
+    }
     return prisma.user.update({
       where: { id: userId },
-      data,
+      data: rest,
       select: userSelect,
     });
   },
@@ -80,10 +92,23 @@ export const usersService = {
     return user;
   },
 
-  async updateUser(id: string, data: Record<string, unknown>) {
+  async updateUser(id: string, data: Record<string, any>) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw AppError.notFound('User');
-    return prisma.user.update({ where: { id }, data, select: userSelect });
+    
+    const { plan, ...rest } = data;
+    if (plan) {
+      let cleanPlan = String(plan).toUpperCase();
+      if (cleanPlan === 'PRO') cleanPlan = 'ENTERPRISE';
+      await prisma.subscription.create({
+        data: {
+          userId: id,
+          plan: cleanPlan as any,
+          status: 'ACTIVE',
+        }
+      });
+    }
+    return prisma.user.update({ where: { id }, data: rest, select: userSelect });
   },
 
   async deleteUser(id: string) {

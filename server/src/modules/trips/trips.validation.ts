@@ -7,6 +7,7 @@ export const createTripSchema = z.object({
   endDate: z.string().datetime().optional(),
   visibility: z.enum(['PRIVATE', 'PUBLIC', 'SHARED']).default('PRIVATE'),
   tags: z.array(z.string()).default([]),
+  aiData: z.any().optional(),
 });
 
 export const updateTripSchema = createTripSchema.partial().extend({

@@ -50,7 +50,7 @@ export default function Dashboard() {
   const [weather, setWeather] = useState(null);
   const [aiInput, setAiInput] = useState('');
   const [dbInspiration, setDbInspiration] = useState([]);
-  const [dbTrips, setDbTrips] = useState(MOCK_TRIPS);
+  const [dbTrips, setDbTrips] = useState([]);
 
   const hour = new Date().getHours();
   const greeting = GREETINGS.find(g => hour >= g.range[0] && hour < g.range[1]) || GREETINGS[0];
@@ -101,40 +101,49 @@ export default function Dashboard() {
     };
     loadDestinations();
 
-    try {
-      const manualTrips = JSON.parse(localStorage.getItem('tl_trips') || '[]');
-      const aiTrips = JSON.parse(localStorage.getItem('tl_ai_trips') || '[]');
+    const loadTrips = async () => {
+      try {
+        const apiTrips = await apiService.trips.getAll();
+        
+        // Map backend trips to the format expected by Dashboard
+        const mappedTrips = apiTrips.map(t => {
+          let progress = 15;
+          let budget = 0;
+          let stops = t.stops?.length || 1;
+          let emoji = '🗺️';
+          let cover = 'trip-japan';
+          let destination = t.description || 'Unknown Destination';
+          
+          if (t.aiData) {
+            progress = 100;
+            emoji = '✨';
+            cover = 'trip-bali';
+            if (t.aiData.destination) destination = t.aiData.destination;
+            if (t.aiData.totalBudget) budget = t.aiData.totalBudget;
+            if (t.aiData.itinerary) stops = t.aiData.itinerary.length;
+          }
 
-      const formattedManual = manualTrips.map(t => ({
-        id: t.id,
-        title: t.title || 'Untitled Trip',
-        destination: t.destinations?.join(', ') || 'Unknown Destination',
-        startDate: t.startDate || new Date().toISOString(),
-        endDate: t.endDate || new Date().toISOString(),
-        status: 'upcoming',
-        emoji: '🗺️',
-        budget: parseInt(t.budget) || 0,
-        stops: t.destinations?.length || 1,
-        progress: 15,
-        cover: 'trip-japan',
-      }));
-
-      const formattedAi = aiTrips.map(t => ({
-        id: t.id,
-        title: t.tripTitle || 'AI Generated Trip',
-        destination: t.destination || 'Unknown',
-        startDate: t.savedAt || new Date().toISOString(),
-        endDate: new Date(new Date(t.savedAt || Date.now()).getTime() + (t.duration || 1) * 86400000).toISOString(),
-        status: 'upcoming',
-        emoji: '✨',
-        budget: t.totalBudget || 0,
-        stops: t.itinerary?.length || 1,
-        progress: 100,
-        cover: 'trip-bali',
-      }));
-
-      setDbTrips([...formattedAi, ...formattedManual, ...MOCK_TRIPS]);
-    } catch (e) {}
+          return {
+            id: t.id,
+            title: t.name || 'Untitled Trip',
+            destination: destination,
+            startDate: t.startDate || t.createdAt,
+            endDate: t.endDate || new Date(new Date(t.createdAt).getTime() + 86400000).toISOString(),
+            status: t.status === 'DRAFT' ? 'upcoming' : t.status.toLowerCase(),
+            emoji,
+            budget,
+            stops,
+            progress,
+            cover,
+          };
+        });
+        
+        setDbTrips(mappedTrips);
+      } catch (e) {
+        console.error("Failed to load trips", e);
+      }
+    };
+    loadTrips();
   }, []);
 
   useEffect(() => {
@@ -150,6 +159,17 @@ export default function Dashboard() {
 
   const upcomingTrips = dbTrips.filter(t => t.status === 'upcoming');
   const completedTrips = dbTrips.filter(t => t.status === 'completed');
+
+  const totalSpent = completedTrips.reduce((acc, t) => acc + (Number(t.budget) || 0), 0);
+  const formattedSpent = totalSpent > 0 ? `₹${(totalSpent / 1000).toFixed(1)}K` : '₹0';
+  
+  const uniqueCountries = new Set(
+    completedTrips.map(t => {
+      const parts = String(t.destination || '').split(',');
+      return parts[parts.length - 1].trim();
+    }).filter(Boolean)
+  );
+  const countriesVisitedCount = uniqueCountries.size;
 
   const safeDate = (dateStr) => {
     try {
@@ -193,7 +213,7 @@ export default function Dashboard() {
         </header>
 
         {/* ─── AI Prompt / Upgrade Banner ─── */}
-        {user?.plan === 'premium' ? (
+        {user?.plan !== 'free' ? (
           <div className="ai-prompt-banner animate-fade-in" style={{ animationDelay: '0.1s' }}>
             <div className="ai-banner-left">
               <Sparkles size={20} className="text-violet" />
@@ -238,8 +258,8 @@ export default function Dashboard() {
         <div className="stats-row stagger animate-fade-in" style={{ animationDelay: '0.15s' }}>
           {[
             { label: 'Trips Planned', value: dbTrips.length, icon: MapPin, color: 'var(--violet)', bg: 'rgba(124,58,237,0.1)' },
-            { label: 'Countries Visited', value: 4, icon: Globe, color: 'var(--cyan)', bg: 'rgba(6,182,212,0.1)' },
-            { label: 'Total Spent', value: '₹76.5K', icon: TrendingUp, color: 'var(--orange)', bg: 'rgba(249,115,22,0.1)' },
+            { label: 'Countries Visited', value: countriesVisitedCount, icon: Globe, color: 'var(--cyan)', bg: 'rgba(6,182,212,0.1)' },
+            { label: 'Total Spent', value: formattedSpent, icon: TrendingUp, color: 'var(--orange)', bg: 'rgba(249,115,22,0.1)' },
             { label: 'Upcoming Trips', value: upcomingTrips.length, icon: Calendar, color: 'var(--emerald)', bg: 'rgba(16,185,129,0.1)' },
           ].map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="stat-card">
@@ -309,7 +329,10 @@ export default function Dashboard() {
             <div className="quick-actions-card glass-card">
               <h3 className="mb-4">Quick Actions</h3>
               <div className="quick-actions-grid">
-                {QUICK_ACTIONS.map(({ icon: Icon, label, desc, path, gradient }) => (
+                {QUICK_ACTIONS.filter(action => {
+                  if (user?.plan !== 'free') return true;
+                  return ['New Trip', 'Explore'].includes(action.label);
+                }).map(({ icon: Icon, label, desc, path, gradient }) => (
                   <button key={label} className="quick-action-btn" onClick={() => navigate(path)}>
                     <div className="quick-action-icon" style={{ background: gradient }}>
                       <Icon size={20} />

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { apiService } from '../services/apiService';
 import SidebarLayout from '../components/SidebarLayout';
 import { Plus, Trash2, Edit, Check, X, MapPin, Clock, DollarSign, Sparkles, GripVertical } from 'lucide-react';
 
@@ -20,22 +21,91 @@ const INITIAL_STOPS = [
 export default function ItineraryBuilder() {
   const { tripId } = useParams();
   const navigate = useNavigate();
-  const [stops, setStops] = useState(INITIAL_STOPS);
+  const [trip, setTrip] = useState(null);
+  const [stops, setStops] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [addingActivity, setAddingActivity] = useState(null);
   const [newActivity, setNewActivity] = useState({ name: '', time: '09:00', cost: '', category: 'Sightseeing', emoji: '🗺️' });
 
-  const handleAddActivity = (stopId) => {
+  useEffect(() => {
+    const fetchTrip = async () => {
+      try {
+        const data = await apiService.trips.getById(tripId);
+        setTrip(data);
+        const aiData = typeof data?.aiData === 'string' ? JSON.parse(data.aiData) : data?.aiData;
+        if (aiData?.itinerary) {
+          const mappedStops = aiData.itinerary.map((day, i) => {
+            const baseTime = data.startDate ? new Date(data.startDate).getTime() : Date.now();
+            return {
+              id: i,
+              dayIndex: day.day,
+              city: day.city,
+              country: data.description || 'Unknown',
+              startDate: new Date(baseTime + (i * 24 * 60 * 60 * 1000)).toISOString(),
+              endDate: new Date(baseTime + ((i + 1) * 24 * 60 * 60 * 1000)).toISOString(),
+              order: i,
+              activities: Array.isArray(day.activities) ? day.activities.map((a, j) => ({ ...a, id: `${i}-${j}` })) : []
+            };
+          });
+          setStops(mappedStops);
+        }
+      } catch (err) {
+        console.error('Failed to load trip', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTrip();
+  }, [tripId]);
+
+  const saveStopsToBackend = async (updatedStops) => {
+    if (!trip) return;
+    try {
+      const updatedAiData = { ...trip.aiData };
+      updatedAiData.itinerary = updatedStops.map(stop => ({
+        day: stop.dayIndex || stop.id + 1,
+        city: stop.city,
+        activities: stop.activities.map(({ id, ...rest }) => rest)
+      }));
+      await apiService.trips.update(tripId, { aiData: updatedAiData });
+      setTrip({ ...trip, aiData: updatedAiData });
+    } catch (e) {
+      console.error('Failed to save itinerary', e);
+    }
+  };
+
+  const handleAddActivity = async (stopId) => {
     if (!newActivity.name) return;
-    setStops(p => p.map(s => s.id === stopId ? { ...s, activities: [...s.activities, { ...newActivity, id: Date.now(), cost: parseFloat(newActivity.cost) || 0 }] } : s));
+    const updatedStops = stops.map(s => s.id === stopId ? { ...s, activities: [...s.activities, { ...newActivity, id: Date.now(), cost: parseFloat(newActivity.cost) || 0 }] } : s);
+    setStops(updatedStops);
     setNewActivity({ name: '', time: '09:00', cost: '', category: 'Sightseeing', emoji: '🗺️' });
     setAddingActivity(null);
+    await saveStopsToBackend(updatedStops);
   };
 
-  const removeActivity = (stopId, actId) => {
-    setStops(p => p.map(s => s.id === stopId ? { ...s, activities: s.activities.filter(a => a.id !== actId) } : s));
+  const removeActivity = async (stopId, actId) => {
+    const updatedStops = stops.map(s => s.id === stopId ? { ...s, activities: s.activities.filter(a => a.id !== actId) } : s);
+    setStops(updatedStops);
+    await saveStopsToBackend(updatedStops);
   };
 
-  const totalCost = stops.flatMap(s => s.activities).reduce((sum, a) => sum + (a.cost || 0), 0);
+  const handleAddDay = async () => {
+    const newStop = {
+      id: Date.now(),
+      dayIndex: stops.length + 1,
+      city: 'New Destination',
+      country: trip?.description || 'Unknown',
+      startDate: new Date(new Date(trip?.startDate || Date.now()).getTime() + (stops.length * 24 * 60 * 60 * 1000)).toISOString(),
+      endDate: new Date(new Date(trip?.startDate || Date.now()).getTime() + ((stops.length + 1) * 24 * 60 * 60 * 1000)).toISOString(),
+      order: stops.length,
+      activities: []
+    };
+    const updatedStops = [...stops, newStop];
+    setStops(updatedStops);
+    await saveStopsToBackend(updatedStops);
+  };
+
+  const totalCost = stops.flatMap(s => s.activities || []).reduce((sum, a) => sum + (a.cost || 0), 0);
 
   return (
     <SidebarLayout>
@@ -43,7 +113,9 @@ export default function ItineraryBuilder() {
         <div className="flex justify-between items-center mb-6 flex-wrap gap-3 animate-fade-in">
           <div>
             <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>🗺️ Itinerary Builder</h1>
-            <p className="text-secondary">Trip #{tripId} · {stops.length} stops · ₹{totalCost.toLocaleString('en-IN')} activities</p>
+            {loading ? <p className="text-secondary">Loading trip...</p> : (
+              <p className="text-secondary">{trip?.name || `Trip #${tripId}`} · {stops.length} stops · ₹{totalCost.toLocaleString('en-IN')} activities</p>
+            )}
           </div>
           <div className="flex gap-3">
             <button className="btn btn-secondary btn-sm" onClick={() => navigate('/ai-planner')}>
@@ -163,6 +235,27 @@ export default function ItineraryBuilder() {
               </div>
             </div>
           ))}
+          
+          {/* Add Day Button */}
+          <button 
+            className="glass-card flex items-center justify-center gap-2 p-4 mt-4" 
+            style={{ borderStyle: 'dashed', cursor: 'pointer', transition: 'all 0.2s', width: '100%', color: 'var(--violet)' }}
+            onClick={handleAddDay}
+          >
+            <Plus size={18} />
+            <span style={{ fontWeight: 600 }}>{stops.length === 0 ? 'Add First Day' : 'Add Another Day'}</span>
+          </button>
+          
+          {stops.length === 0 && !loading && (
+            <div className="empty-state text-center mt-6 p-8 glass-card">
+              <Sparkles size={32} style={{ color: 'var(--violet)', margin: '0 auto 12px' }} />
+              <h3>Your itinerary is empty</h3>
+              <p className="text-secondary mb-4">You can manually add days, or let our AI magically generate a perfect itinerary for you!</p>
+              <button className="btn btn-secondary mx-auto" onClick={() => navigate('/ai-planner')}>
+                Try AI Planner
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </SidebarLayout>
