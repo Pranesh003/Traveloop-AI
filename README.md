@@ -5,10 +5,10 @@
 ### *Your Intelligent Personal Travel Agent — Powered by Google Gemini*
 
 [![React](https://img.shields.io/badge/React-19.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.0-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)](https://spring.io/projects/spring-boot)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=for-the-badge&logo=node.js&logoColor=white)](https://nodejs.org/)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini_AI-2.5_Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Vite](https://img.shields.io/badge/Vite-8.x-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Java](https://img.shields.io/badge/Java-17-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)](https://www.java.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 <br />
@@ -86,11 +86,11 @@
 └─────────────────────────────────────────────────────────────────────┘
 
   ┌──────────────────────────────────┐     ┌───────────────────────────────┐
-  │         FRONTEND (React + Vite)  │     │     BACKEND (Spring Boot)     │
-  │          localhost:5173          │     │        localhost:8080         │
+  │         FRONTEND (React + Vite)  │     │     BACKEND (Node.js/Express) │
+  │          localhost:5173          │     │        localhost:5000         │
   │                                  │     │                               │
   │  ┌────────────┐  ┌─────────────┐│     │  ┌──────────────────────────┐ │
-  │  │  React 19  │  │ React Router││     │  │   REST Controllers (8x)  │ │
+  │  │  React 19  │  │ React Router││     │  │   Express API Routes     │ │
   │  │  Components│  │ (SPA Routes)││     │  │  Destinations, Users,    │ │
   │  └────────────┘  └─────────────┘│     │  │  Activities, Packages,  │ │
   │                                  │     │  │  Plans, Reports,        │ │
@@ -98,22 +98,22 @@
   │  │ AuthContext│  │ Permission  ││     │  └──────────────────────────┘ │
   │  │ (JWT/Local)│  │ Guard System││     │              │                 │
   │  └────────────┘  └─────────────┘│     │  ┌──────────────────────────┐ │
-  │                                  │     │  │    Spring Data JPA       │ │
-  │  ┌─────────────────────────────┐│     │  │    (Hibernate ORM)       │ │
-  │  │         AI Services         ││     │  └──────────────────────────┘ │
-  │  │  aiService.js               ││     │              │                 │
-  │  │  ├── generateTripPlan()     ││     │  ┌──────────────────────────┐ │
-  │  │  ├── chatWithAI()           ││     │  │    H2 File Database       │ │
-  │  │  ├── generatePackingList()  ││     │  │  ./data/traveloop.mv.db  │ │
-  │  │  ├── discoverDestinations() ││     │  └──────────────────────────┘ │
-  │  │  ├── predictBudget()        ││     └───────────────────────────────┘
-  │  │  └── optimizeRoute()        ││
-  │  └─────────────────────────────┘│     ┌───────────────────────────────┐
-  │                                  │     │    EXTERNAL SERVICES          │
-  │  ┌─────────────────────────────┐│     │                               │
-  │  │     apiService.js           ││────▶│  Google Gemini 2.5 Flash API  │
-  │  │  CRUD Factory for all       ││     │  OpenWeatherMap API            │
-  │  │  backend modules            ││     └───────────────────────────────┘
+  │                                  │     │  │      Prisma ORM          │ │
+  │  ┌─────────────────────────────┐│     │  └──────────────────────────┘ │
+  │  │         AI Services         ││     │              │                 │
+  │  │  aiService.js               ││     │  ┌──────────────────────────┐ │
+  │  │  ├── generateTripPlan()     ││     │  │    PostgreSQL Database   │ │
+  │  │  ├── chatWithAI()           ││     │  └──────────────────────────┘ │
+  │  │  ├── generatePackingList()  ││     └───────────────────────────────┘
+  │  │  ├── discoverDestinations() ││     
+  │  │  ├── predictBudget()        ││     ┌───────────────────────────────┐
+  │  │  └── optimizeRoute()        ││     │    EXTERNAL SERVICES          │
+  │  └─────────────────────────────┘│     │                               │
+  │                                  │     │  Google Gemini 2.5 Flash API  │
+  │  ┌─────────────────────────────┐│────▶│  OpenWeatherMap API            │
+  │  │     apiService.js           ││     └───────────────────────────────┘
+  │  │  CRUD Factory for all       ││
+  │  │  backend modules            ││
   │  └─────────────────────────────┘│
   └──────────────────────────────────┘
 ```
@@ -212,7 +212,7 @@ User Navigates to Admin URL
 ### 3. Backend REST API Flow
 
 ```
-React Frontend                Spring Boot Backend              H2 Database
+React Frontend                Node.js/Express Backend        PostgreSQL Database
      │                               │                              │
      │  GET /api/destinations        │                              │
      │──────────────────────────────▶│                              │
@@ -469,8 +469,7 @@ traveloop-2.0/
 | Tool | Version | Download |
 |---|---|---|
 | Node.js | 18+ | [nodejs.org](https://nodejs.org) |
-| Java JDK | 17+ | [adoptium.net](https://adoptium.net) |
-| Maven | (included via `mvnw`) | Bundled |
+| PostgreSQL | 15+ | [postgresql.org](https://postgresql.org) |
 | Git | Latest | [git-scm.com](https://git-scm.com) |
 
 ### 1. Clone the Repository
@@ -492,20 +491,16 @@ VITE_OPENWEATHER_KEY=your_openweathermap_key
 VITE_API_BASE=http://localhost:8080
 ```
 
-### 3. Start the Backend (Spring Boot)
+### 3. Start the Backend (Node.js/Express)
 
 ```bash
-cd backend
-
-# Windows
-mvnw.cmd spring-boot:run
-
-# Linux / macOS
-./mvnw spring-boot:run
+cd server
+npm install
+npx prisma generate
+npm run dev
 ```
 
-> ✅ Backend starts at **http://localhost:8080**
-> H2 Console available at **http://localhost:8080/h2-console**
+> ✅ Backend starts at **http://localhost:5000**
 
 ### 4. Start the Frontend (Vite + React)
 
@@ -568,7 +563,7 @@ spring.h2.console.path=/h2-console
 
 ## 🌐 API Reference
 
-### Base URL: `http://localhost:8080/api`
+### Base URL: `http://localhost:5000/api`
 
 All endpoints follow RESTful conventions with JSON request/response bodies.
 

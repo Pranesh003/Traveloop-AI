@@ -11,6 +11,7 @@ public class Ticket {
     @Id
     private String id;
 
+    @Column(name = "ticket_user")
     private String user;
     private String subject;
     private String status;

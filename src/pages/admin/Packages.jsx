@@ -40,12 +40,13 @@ export default function Packages() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const payload = { name, duration, price, bookings: editItem?.bookings || 0, rating: editItem?.rating || 5.0 };
     if (editItem) {
-      const updated = await apiService.packages.update(editItem.id, { name, duration, price, bookings: editItem.bookings, rating: editItem.rating });
-      if (updated) setPackages(packages.map(p => p.id === editItem.id ? updated : p));
+      const updated = await apiService.packages.update(editItem.id, payload);
+      setPackages(packages.map(p => p.id === editItem.id ? (updated || { ...editItem, ...payload }) : p));
     } else {
-      const added = await apiService.packages.create({ name, duration, price, bookings: 0, rating: 5.0 });
-      if (added) setPackages([added, ...packages]);
+      const added = await apiService.packages.create(payload);
+      setPackages([added || { id: Date.now().toString(), ...payload }, ...packages]);
     }
     closeModal();
   };

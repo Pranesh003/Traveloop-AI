@@ -43,12 +43,13 @@ export default function Destinations() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const payload = { city, country, safety, status };
     if (editItem) {
-      const updated = await apiService.destinations.update(editItem.id, { city, country, safety, status });
-      if (updated) setDestinations(destinations.map(d => d.id === editItem.id ? updated : d));
+      const updated = await apiService.destinations.update(editItem.id, payload);
+      setDestinations(destinations.map(d => d.id === editItem.id ? (updated || { ...editItem, ...payload }) : d));
     } else {
-      const added = await apiService.destinations.create({ city, country, safety, status });
-      if (added) setDestinations([added, ...destinations]);
+      const added = await apiService.destinations.create(payload);
+      setDestinations([added || { id: Date.now().toString(), ...payload }, ...destinations]);
     }
     closeModal();
   };

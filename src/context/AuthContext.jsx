@@ -27,15 +27,28 @@ export function AuthProvider({ children }) {
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('tl_token', data.token);
-        localStorage.setItem('tl_user', JSON.stringify(data.user));
-        setUser(data.user);
-        setToken(data.token);
-        return { success: true, user: data.user };
+      
+      const token = data.token || data.data?.accessToken;
+      const userObj = data.user || data.data?.user;
+      
+      if (token && userObj) {
+        // Map backend uppercase roles to frontend lowercase roles
+        if (userObj.role === 'SUPER_ADMIN') {
+          userObj.role = ROLES.SUPER_ADMIN;
+        } else if (userObj.role === 'ADMIN') {
+          userObj.role = ROLES.ADMIN;
+        } else if (userObj.role === 'USER') {
+          userObj.role = ROLES.USER;
+        }
+        
+        localStorage.setItem('tl_token', token);
+        localStorage.setItem('tl_user', JSON.stringify(userObj));
+        setUser(userObj);
+        setToken(token);
+        return { success: true, user: userObj };
       }
-    } catch {
-      // Fallback mock auth
+    } catch (err) {
+      console.error("Login API error:", err);
     }
     
     // Check if the user exists in our mock DB

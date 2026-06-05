@@ -1,11 +1,26 @@
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = 'http://localhost:5000/api';
+
+const getHeaders = (hasBody = false) => {
+  const headers = {};
+  if (hasBody) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const token = localStorage.getItem('tl_token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+};
 
 const createCrudMethods = (resource) => ({
   getAll: async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/${resource}`);
+      const response = await fetch(`${API_BASE_URL}/${resource}`, {
+        headers: getHeaders()
+      });
       if (!response.ok) throw new Error(`Failed to fetch ${resource}`);
-      return await response.json();
+      const data = await response.json();
+      return data.data ?? data; // Extract standard API format
     } catch (error) {
       console.error(error);
       return [];
@@ -15,10 +30,12 @@ const createCrudMethods = (resource) => ({
     try {
       const response = await fetch(`${API_BASE_URL}/${resource}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(true),
         body: JSON.stringify(data)
       });
-      return await response.json();
+      if (!response.ok) return null;
+      const resData = await response.json();
+      return resData.data ?? resData;
     } catch (error) {
       console.error(error);
       return null;
@@ -28,10 +45,12 @@ const createCrudMethods = (resource) => ({
     try {
       const response = await fetch(`${API_BASE_URL}/${resource}/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(true),
         body: JSON.stringify(data)
       });
-      return await response.json();
+      if (!response.ok) return null;
+      const resData = await response.json();
+      return resData.data ?? resData;
     } catch (error) {
       console.error(error);
       return null;
@@ -39,8 +58,11 @@ const createCrudMethods = (resource) => ({
   },
   delete: async (id) => {
     try {
-      await fetch(`${API_BASE_URL}/${resource}/${id}`, { method: 'DELETE' });
-      return true;
+      const response = await fetch(`${API_BASE_URL}/${resource}/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders()
+      });
+      return response.ok;
     } catch (error) {
       console.error(error);
       return false;

@@ -13,6 +13,7 @@ public class Report {
     private Long id;
 
     private String type;
+    @Column(name = "report_user")
     private String user;
     private String reason;
     private String date;

@@ -43,12 +43,13 @@ export default function Activities() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    const payload = { name, type, price, duration, retro: name };
     if (editItem) {
-      const updated = await apiService.activities.update(editItem.id, { name, type, price, duration });
-      if (updated) setActivities(activities.map(a => a.id === editItem.id ? updated : a));
+      const updated = await apiService.activities.update(editItem.id, payload);
+      setActivities(activities.map(a => a.id === editItem.id ? (updated || { ...editItem, ...payload }) : a));
     } else {
-      const added = await apiService.activities.create({ name, type, price, duration });
-      if (added) setActivities([added, ...activities]);
+      const added = await apiService.activities.create(payload);
+      setActivities([added || { id: Date.now().toString(), ...payload }, ...activities]);
     }
     closeModal();
   };
