@@ -14,7 +14,7 @@ const TRAVEL_QUOTES = [
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,13 +29,29 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) return setError('Please fill in all fields.');
+    if (!isLogin && !name) return setError('Please enter your name.');
     setLoading(true);
     setError('');
     try {
-      const result = await login(email, password);
+      let result;
+      if (isLogin) {
+        result = await login(email, password);
+      } else {
+        result = await register(name, email, password);
+      }
+      
       if (result.success) {
-        const dest = location.state?.from || '/dashboard';
+        let dest = location.state?.from;
+        if (!dest) {
+          if (result.user.role === 'super_admin' || result.user.role === 'admin') {
+            dest = '/admin';
+          } else {
+            dest = '/dashboard';
+          }
+        }
         navigate(dest, { replace: true });
+      } else {
+        setError(result.error || 'Authentication failed. Please try again.');
       }
     } catch {
       setError('Something went wrong. Please try again.');
@@ -46,9 +62,17 @@ export default function Login() {
 
   const handleDemoLogin = async (role) => {
     setLoading(true);
-    const emails = { user: 'demo@traveloop.com', admin: 'admin@traveloop.com' };
-    await login(emails[role], 'demo123');
-    navigate('/dashboard', { replace: true });
+    const emails = { user: 'demo@traveloop.com', premium: 'premium@traveloop.com', admin: 'admin@traveloop.com' };
+    const result = await login(emails[role], 'demo123');
+    if (result.success) {
+      if (result.user.role === 'super_admin' || result.user.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } else {
+      setLoading(false);
+    }
   };
 
   return (
@@ -95,8 +119,10 @@ export default function Login() {
           {/* Demo Login */}
           <div className="demo-btns">
             <button className="demo-btn" onClick={() => handleDemoLogin('user')} disabled={loading}>
-              <Sparkles size={14} />
-              Try as User
+              👤 Try as Free User
+            </button>
+            <button className="demo-btn" style={{ background: 'var(--gradient-violet)', color: 'white', border: 'none' }} onClick={() => handleDemoLogin('premium')} disabled={loading}>
+              ⭐ Try as Premium User
             </button>
             <button className="demo-btn demo-btn-admin" onClick={() => handleDemoLogin('admin')} disabled={loading}>
               🛡️ Try as Admin

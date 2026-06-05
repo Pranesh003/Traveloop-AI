@@ -42,7 +42,18 @@ export default function SidebarLayout({ children }) {
     { path: '/explore', icon: Compass, label: 'Explore' },
     { path: '/calendar', icon: Calendar, label: 'Calendar' },
     { path: '/ai-chat', icon: MessageSquare, label: 'AI Chat', badge: 'AI', badgeClass: 'badge-cyan' },
-  ];
+  ].filter(item => {
+    // Admins/Super Admins see adminNav ONLY (no core user features)
+    if (user?.role === 'admin' || user?.role === 'super_admin') return false;
+
+    // Premium users see premium only features
+    if (user?.plan === 'premium') {
+      return ['Dashboard', 'AI Planner', 'AI Chat', 'Calendar', 'My Trips', 'New Trip'].includes(item.label);
+    }
+
+    // Free users see basic features
+    return ['Dashboard', 'My Trips', 'New Trip', 'Explore'].includes(item.label);
+  });
 
   // Admin SaaS Navigation dynamically rendered based on permissions
   const adminNav = [
@@ -69,7 +80,7 @@ export default function SidebarLayout({ children }) {
       {mobileOpen && <div className="mobile-overlay" onClick={() => setMobileOpen(false)} />}
 
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
-        <div className="sidebar-brand" onClick={() => handleNav('/dashboard')}>
+        <div className="sidebar-brand" onClick={() => handleNav(user?.role === 'super_admin' || user?.role === 'admin' ? '/admin' : '/dashboard')}>
           <div className="brand-icon-wrap">
             <Plane size={20} />
           </div>

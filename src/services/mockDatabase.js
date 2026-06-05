@@ -2,9 +2,10 @@ import { ROLES } from '../constants/permissions';
 
 const initialData = {
   users: [
-    { id: 1, name: 'Super Admin', email: 'superadmin@traveloop.com', role: ROLES.SUPER_ADMIN, createdAt: new Date().toISOString(), status: 'active' },
-    { id: 2, name: 'Admin', email: 'admin@traveloop.com', role: ROLES.ADMIN, createdAt: new Date().toISOString(), status: 'active' },
-    { id: 3, name: 'User', email: 'demo@traveloop.com', role: ROLES.USER, createdAt: new Date().toISOString(), status: 'active' }
+    { id: 1, name: 'Super Admin', email: 'superadmin@traveloop.com', role: ROLES.SUPER_ADMIN, plan: 'free', location: 'Coimbatore, India', createdAt: new Date().toISOString(), status: 'active' },
+    { id: 2, name: 'Admin', email: 'admin@traveloop.com', role: ROLES.ADMIN, plan: 'free', location: 'Coimbatore, India', createdAt: new Date().toISOString(), status: 'active' },
+    { id: 3, name: 'User', email: 'demo@traveloop.com', role: ROLES.USER, plan: 'free', location: 'Coimbatore, India', createdAt: new Date().toISOString(), status: 'active' },
+    { id: 4, name: 'Premium User', email: 'premium@traveloop.com', role: ROLES.USER, plan: 'premium', location: 'Coimbatore, India', createdAt: new Date().toISOString(), status: 'active' }
   ],
   destinations: [
     { id: 1, country: 'Japan', city: 'Tokyo', status: 'Active', safety: 'High' },
@@ -56,7 +57,17 @@ class MockDatabase {
     } else {
       let users = JSON.parse(localStorage.getItem('tl_db_users'));
       let modified = false;
+      
+      // Ensure all users have a plan and location field
       users = users.map(u => {
+        if (!u.plan) {
+          modified = true;
+          u.plan = u.email === 'premium@traveloop.com' ? 'premium' : 'free';
+        }
+        if (!u.location) {
+          modified = true;
+          u.location = 'Coimbatore, India';
+        }
         if (u.role === 'content_manager' || u.role === 'travel_expert') {
           modified = true;
           return { ...u, role: ROLES.ADMIN };
@@ -67,6 +78,13 @@ class MockDatabase {
         }
         return u;
       });
+
+      // Ensure premium@traveloop.com is added
+      if (!users.some(u => u.email === 'premium@traveloop.com')) {
+        users.push(initialData.users.find(u => u.email === 'premium@traveloop.com'));
+        modified = true;
+      }
+      
       if (modified) {
         localStorage.setItem('tl_db_users', JSON.stringify(users));
       }

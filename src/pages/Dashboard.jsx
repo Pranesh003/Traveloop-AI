@@ -46,7 +46,7 @@ const STATIC_INSPIRATION = [
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [weather, setWeather] = useState(null);
   const [aiInput, setAiInput] = useState('');
   const [dbInspiration, setDbInspiration] = useState([]);
@@ -57,8 +57,33 @@ export default function Dashboard() {
   const firstName = user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Traveler';
 
   useEffect(() => {
-    getWeather('Delhi').then(setWeather).catch(() => {});
-    
+    // Request location permission from browser
+    if (navigator.geolocation && (!user?.location || user?.location === 'India')) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`, {
+              headers: { 'Accept-Language': 'en' }
+            });
+            const data = await res.json();
+            const city = data.address?.city || data.address?.town || data.address?.village || data.address?.state || 'Coimbatore';
+            const country = data.address?.country || 'India';
+            updateUser({ location: `${city}, ${country}` });
+          } catch (e) {
+            console.error("Reverse geocoding failed", e);
+            updateUser({ location: 'Coimbatore, India' });
+          }
+        },
+        (error) => {
+          console.error("Geolocation request denied or failed:", error);
+          if (!user?.location) {
+            updateUser({ location: 'Coimbatore, India' });
+          }
+        }
+      );
+    }
+
     // Load from API
     const loadDestinations = async () => {
       const items = (await apiService.destinations.getAll()).filter(d => d.status === 'Active');
@@ -112,6 +137,11 @@ export default function Dashboard() {
     } catch (e) {}
   }, []);
 
+  useEffect(() => {
+    const userCity = user?.location?.split(',')[0]?.trim() || 'Coimbatore';
+    getWeather(userCity).then(setWeather).catch(() => {});
+  }, [user?.location]);
+
   const handleAiPlan = (e) => {
     e.preventDefault();
     if (!aiInput.trim()) return;
@@ -140,7 +170,12 @@ export default function Dashboard() {
               <span className="greeting-emoji">{greeting.emoji}</span>
               <div>
                 <h1 className="greeting-text">{greeting.text}, {firstName}!</h1>
-                <p className="greeting-sub">Ready for your next adventure?</p>
+                <div className="flex items-center gap-4 flex-wrap mt-1">
+                  <p className="greeting-sub">Ready for your next adventure?</p>
+                  <span className="text-xs text-violet font-semibold flex items-center gap-1 bg-violet-500/10 px-2 py-0.5 rounded-full border border-violet-500/20">
+                    <MapPin size={10} /> {user?.location || 'Coimbatore, India'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -157,28 +192,47 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* ─── AI Prompt ─── */}
-        <div className="ai-prompt-banner animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <div className="ai-banner-left">
-            <Sparkles size={20} className="text-violet" />
-            <div>
-              <p className="ai-banner-title">Where do you want to go?</p>
-              <p className="ai-banner-sub text-xs text-muted">Describe any trip and AI plans it in seconds</p>
+        {/* ─── AI Prompt / Upgrade Banner ─── */}
+        {user?.plan === 'premium' ? (
+          <div className="ai-prompt-banner animate-fade-in" style={{ animationDelay: '0.1s' }}>
+            <div className="ai-banner-left">
+              <Sparkles size={20} className="text-violet" />
+              <div>
+                <p className="ai-banner-title">Where do you want to go?</p>
+                <p className="ai-banner-sub text-xs text-muted">Describe any trip and AI plans it in seconds</p>
+              </div>
             </div>
+            <form className="ai-banner-form" onSubmit={handleAiPlan}>
+              <input
+                type="text"
+                placeholder="e.g. 7-day Japan trip for ₹1.5L in October..."
+                value={aiInput}
+                onChange={e => setAiInput(e.target.value)}
+                className="ai-banner-input"
+              />
+              <button type="submit" className="btn btn-primary btn-sm">
+                <Sparkles size={14} /> Generate
+              </button>
+            </form>
           </div>
-          <form className="ai-banner-form" onSubmit={handleAiPlan}>
-            <input
-              type="text"
-              placeholder="e.g. 7-day Japan trip for ₹1.5L in October..."
-              value={aiInput}
-              onChange={e => setAiInput(e.target.value)}
-              className="ai-banner-input"
-            />
-            <button type="submit" className="btn btn-primary btn-sm">
-              <Sparkles size={14} /> Generate
+        ) : (
+          <div className="ai-prompt-banner animate-fade-in" style={{ animationDelay: '0.1s', background: 'linear-gradient(135deg, rgba(124,58,237,0.15), rgba(167,139,250,0.05))', border: '1px dashed var(--violet)' }}>
+            <div className="ai-banner-left">
+              <Sparkles size={20} className="text-violet" />
+              <div>
+                <p className="ai-banner-title">Unlock Premium AI Features</p>
+                <p className="ai-banner-sub text-xs text-muted">Upgrade to Premium to get unlimited trips, advanced AI models, and real-time planning.</p>
+              </div>
+            </div>
+            <button className="btn btn-primary btn-sm" onClick={() => {
+              const updated = { ...user, plan: 'premium' };
+              localStorage.setItem('tl_user', JSON.stringify(updated));
+              window.location.reload();
+            }}>
+              ⭐ Upgrade to Premium
             </button>
-          </form>
-        </div>
+          </div>
+        )}
 
         {/* ─── Stats Row ─── */}
         <div className="stats-row stagger animate-fade-in" style={{ animationDelay: '0.15s' }}>

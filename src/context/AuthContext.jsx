@@ -41,6 +41,9 @@ export function AuthProvider({ children }) {
           userObj.role = ROLES.USER;
         }
         
+        // Map backend subscription plan if it exists
+        userObj.plan = userObj.plan || (userObj.subscriptions && userObj.subscriptions[0]?.plan?.toLowerCase()) || (userObj.email === 'premium@traveloop.com' ? 'premium' : 'free');
+        
         localStorage.setItem('tl_token', token);
         localStorage.setItem('tl_user', JSON.stringify(userObj));
         setUser(userObj);
@@ -60,9 +63,49 @@ export function AuthProvider({ children }) {
         email,
         name: email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
         role: ROLES.USER,
+        plan: email === 'premium@traveloop.com' ? 'premium' : 'free'
       });
     }
 
+    const mockToken = 'mock_token_' + Date.now();
+    localStorage.setItem('tl_token', mockToken);
+    localStorage.setItem('tl_user', JSON.stringify(mockUser));
+    setUser(mockUser);
+    setToken(mockToken);
+    return { success: true, user: mockUser };
+  };
+
+  const register = async (name, email, password) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE || 'http://localhost:5000'}/api/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Automatically log in after registration
+        return await login(email, password);
+      } else {
+        return { success: false, error: data.message || 'Registration failed' };
+      }
+    } catch (err) {
+      console.error("Register API error:", err);
+    }
+
+    // Mock DB registration fallback
+    let mockUser = db.getUserByEmail(email);
+    if (mockUser) {
+      return { success: false, error: 'User already exists.' };
+    }
+    mockUser = db.addUser({
+      email,
+      name,
+      role: ROLES.USER,
+      status: 'active',
+      createdAt: new Date().toISOString()
+    });
+    
     const mockToken = 'mock_token_' + Date.now();
     localStorage.setItem('tl_token', mockToken);
     localStorage.setItem('tl_user', JSON.stringify(mockUser));
@@ -105,12 +148,14 @@ export function AuthProvider({ children }) {
       token, 
       loading, 
       login, 
+      register,
       logout, 
       updateUser, 
       hasPermission,
       hasAnyRole,
       isSuperAdmin: user?.role === ROLES.SUPER_ADMIN,
-      isAdmin: user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN
+      isAdmin: user?.role === ROLES.ADMIN || user?.role === ROLES.SUPER_ADMIN,
+      isPremium: user?.plan === 'premium'
     }}>
       {children}
     </AuthContext.Provider>

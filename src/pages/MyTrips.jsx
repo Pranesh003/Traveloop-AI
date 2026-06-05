@@ -38,6 +38,8 @@ export default function MyTrips() {
         stops: t.destinations?.length || 1,
         progress: 15,
         cover: 'linear-gradient(135deg,#0a3d0a,#1a5c1a,#0d7a0d)',
+        isAi: false,
+        isStatic: false
       }));
 
       const formattedAi = aiTrips.map(t => ({
@@ -52,11 +54,36 @@ export default function MyTrips() {
         stops: t.itinerary?.length || 1,
         progress: 100,
         cover: 'linear-gradient(135deg,#7c3aed,#4c1d95,#2e1065)',
+        isAi: true,
+        isStatic: false
       }));
 
-      setTripsList([...formattedAi, ...formattedManual, ...ALL_TRIPS]);
+      const staticTrips = ALL_TRIPS.map(t => ({ ...t, isAi: false, isStatic: true }));
+      setTripsList([...formattedAi, ...formattedManual, ...staticTrips]);
     } catch (e) {}
   }, []);
+
+  const handleDeleteTrip = (tripId, isAi = false, isStatic = false) => {
+    if (window.confirm("Are you sure you want to delete this trip plan?")) {
+      try {
+        if (!isStatic) {
+          if (isAi) {
+            const aiTrips = JSON.parse(localStorage.getItem('tl_ai_trips') || '[]');
+            const updated = aiTrips.filter(t => t.id !== tripId);
+            localStorage.setItem('tl_ai_trips', JSON.stringify(updated));
+          } else {
+            const manualTrips = JSON.parse(localStorage.getItem('tl_trips') || '[]');
+            const updated = manualTrips.filter(t => t.id !== tripId);
+            localStorage.setItem('tl_trips', JSON.stringify(updated));
+          }
+        }
+        setTripsList(prev => prev.filter(t => t.id !== tripId));
+        setOpenMenu(null);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   const filtered = tripsList.filter(t => {
     const titleStr = String(t.title || '');
@@ -136,7 +163,7 @@ export default function MyTrips() {
                       <button onClick={() => navigate(`/builder/${trip.id}`)}><Edit size={14} /> Edit</button>
                       <button onClick={() => navigate(`/builder/${trip.id}`)}><Eye size={14} /> View</button>
                       <button><Share2 size={14} /> Share</button>
-                      <button className="danger"><Trash2 size={14} /> Delete</button>
+                      <button className="danger" onClick={() => handleDeleteTrip(trip.id, trip.isAi, trip.isStatic)}><Trash2 size={14} /> Delete</button>
                     </div>
                   )}
                 </div>

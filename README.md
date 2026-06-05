@@ -46,6 +46,7 @@
 ### 🤖 AI-Powered Planning
 | Feature | Description |
 |---|---|
+| **Location-Aware AI Planner** | Automatically detects user location using browser geolocation APIs (with reverse-geocoding city fallback) to calculate realistic starting points, distances, and budgets (e.g. Coimbatore to Ooty budget tuning) |
 | **AI Trip Planner** | Describe any trip in plain English → get a full day-by-day itinerary with hotels, meals, and costs |
 | **AI Chat Agent** | Conversational travel assistant powered by Gemini 2.5 Flash |
 | **Smart Packing Lists** | AI-generated checklists tailored to destination, weather, and travel style |
@@ -664,9 +665,14 @@ VIEW_ANALYTICS              ✅             ✅       ❌
 ──────────────────────────────────────────────────────────────────
 ```
 
-The permission system is enforced in two layers:
-1. **Route level** — `ProtectedRoute` component in `App.jsx` redirects unauthorized users
-2. **UI level** — Admin components conditionally show/hide actions based on `isSuperAdmin` flag
+The permission system is enforced in three layers:
+1. **Route level** — `ProtectedRoute` component in `App.jsx` redirects unauthorized users.
+2. **Subscription & Plan Gating** — Premium features (such as the AI Planner, AI Chat, and Explore Destination updates) are strictly hidden or restricted for basic users.
+3. **UI level** — Admin components conditionally show/hide actions based on `isSuperAdmin` flag, and admin accounts operate strictly within admin views to prevent interface contamination.
+
+### 🔌 Live DB Empty Fallback Resiliency
+To ensure a seamless experience even when database tables are unseeded or empty, the CRUD client factory automatically merges active database records with offline mock database elements. This prevents empty lists, visual card drops, and dashboard errors for analytics metrics.
+
 
 ---
 

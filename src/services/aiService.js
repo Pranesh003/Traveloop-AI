@@ -25,6 +25,7 @@ const MOCK_DESTINATIONS = {
   manali: { name: 'Manali', country: 'India', emoji: '🏔️', budget: 28000, weather: 'Snowy 5°C', vibe: 'Adventure & Nature' },
   goa: { name: 'Goa', country: 'India', emoji: '🏖️', budget: 22000, weather: 'Sunny 32°C', vibe: 'Party & Beach' },
   dubai: { name: 'Dubai', country: 'UAE', emoji: '🏙️', budget: 95000, weather: 'Sunny 38°C', vibe: 'Luxury & Futuristic' },
+  ooty: { name: 'Ooty', country: 'India', emoji: '🏔️', budget: 10000, weather: 'Misty 15°C', vibe: 'Scenic Hill Station & Tea Gardens' },
 };
 
 // ─── Call Gemini API ─────────────────────────────────────────
@@ -50,7 +51,20 @@ function safeParseJSON(text) {
 
 // ─── Generate Full Trip Plan ─────────────────────────────────
 export async function generateTripPlan(userPrompt) {
+  let userLocation = 'Coimbatore, India';
+  try {
+    const savedUser = JSON.parse(localStorage.getItem('tl_user') || '{}');
+    if (savedUser && savedUser.location) {
+      userLocation = savedUser.location;
+    }
+  } catch (err) {
+    console.error("Error reading user location:", err);
+  }
+
   const systemPrompt = `You are an expert AI travel agent. Generate a detailed travel itinerary as JSON.
+User current location (Start/Departure Point): "${userLocation}"
+Important: The user departs from "${userLocation}". If the destination is close to the starting point (for example, Coimbatore to Ooty, or Bangalore to Coorg), do NOT include expensive flight tickets in the budget. Use local ground transportation (bus, taxi, train) costs instead (e.g. transport budget of ₹1,000 - ₹3,000 total) so the overall budget matches a short-distance local getaway (approx ₹8,000 - ₹15,000 total) instead of an arbitrary ₹75,000.
+
 User request: "${userPrompt}"
 
 Return ONLY valid JSON in this exact format:
@@ -117,32 +131,47 @@ Return ONLY valid JSON in this exact format:
 
   // Smart mock fallback
   const days = parseInt(userPrompt.match(/(\d+)[- ]day/i)?.[1]) || 7;
-  const budget = parseInt(userPrompt.match(/₹?([\d,]+)/)?.[1]?.replace(',','')) || 100000;
+  let budget = parseInt(userPrompt.match(/₹?([\d,]+)/)?.[1]?.replace(',','')) || 100000;
   const dest = Object.keys(MOCK_DESTINATIONS).find(k => userPrompt.toLowerCase().includes(k)) || 'tokyo';
   const d = MOCK_DESTINATIONS[dest];
 
+  // If destination is Ooty and user is in Coimbatore (or close by), adapt the budget to local short-distance travel
+  if (d.name.toLowerCase() === 'ooty' && userLocation.toLowerCase().includes('coimbatore')) {
+    budget = Math.min(budget, days * 2000); // approx ₹2,000 per day (around ₹10k - 14k total)
+  }
+
+  const startCity = userLocation.split(',')[0].trim();
+  const transportEmoji = d.name.toLowerCase() === 'ooty' ? '🚌' : '✈️';
+  const transportName = d.name.toLowerCase() === 'ooty' ? 'Local Bus / Taxi' : 'Flight';
+  const transportCost = d.name.toLowerCase() === 'ooty' ? 300 : 15000;
+
   return {
-    tripTitle: `${days}-Day ${d.name} Experience`,
+    tripTitle: `${days}-Day ${d.name} Trip from ${startCity}`,
     destination: d.name,
     duration: days,
     totalBudget: budget,
     currency: 'INR',
     travelStyle: 'Cultural & Adventure',
-    summary: `An unforgettable ${days}-day journey through ${d.name}, ${d.country} exploring iconic landmarks, hidden gems, and authentic local experiences.`,
-    highlights: [`Iconic ${d.name} Landmarks`, 'Local Street Food', 'Hidden Gems', 'Cultural Experiences', 'Scenic Photography'],
+    summary: `An unforgettable ${days}-day journey starting from ${userLocation} to ${d.name}, ${d.country} exploring local tea gardens, sights, and hidden gems.`,
+    highlights: [`Travel from ${startCity}`, `Iconic ${d.name} Landmarks`, 'Local Street Food', 'Scenic Highlights', 'Cultural Experience'],
     bestTimeToVisit: 'October - March',
     weather: d.weather,
     itinerary: Array.from({ length: Math.min(days, 7) }, (_, i) => ({
       day: i + 1,
-      theme: ['Arrival & Orientation', 'Cultural Immersion', 'Nature & Adventure', 'Local Markets', 'Hidden Gems', 'Relaxation Day', 'Farewell & Departure'][i] || `Day ${i+1}`,
+      theme: i === 0 ? `Travel from ${startCity}` : ['Cultural Immersion', 'Nature & Adventure', 'Local Markets', 'Hidden Gems', 'Relaxation Day', 'Farewell & Departure'][i - 1] || `Day ${i+1}`,
       city: d.name,
-      activities: [
+      activities: i === 0 ? [
+        { time: '07:00 AM', name: `Depart from ${startCity}`, description: `Board your ${transportName} heading towards ${d.name}.`, category: 'Transport', cost: transportCost, duration: d.name.toLowerCase() === 'ooty' ? '3 hours' : '8 hours', emoji: transportEmoji },
+        { time: '01:00 PM', name: `Arrive in ${d.name} & Check-in`, description: `Arrive at the hotel, complete check-in, and freshen up.`, category: 'Accommodation', cost: 0, duration: '1 hour', emoji: '🏨' },
+        { time: '04:00 PM', name: `${d.name} Orientation Walk`, description: `Take a light walk around town to explore the local vibe.`, category: 'Sightseeing', cost: 0, duration: '2 hours', emoji: '🚶' },
+        { time: '07:30 PM', name: 'Welcome Dinner', description: `Enjoy your first meal in ${d.name} at a popular local spot.`, category: 'Food', cost: 400, duration: '1.5 hours', emoji: '🍲' }
+      ] : [
         { time: '09:00 AM', name: `${d.name} Morning Tour`, description: 'Start your day with iconic sights and local breakfast spots', category: 'Sightseeing', cost: 800, duration: '3 hours', emoji: '🌅' },
         { time: '01:00 PM', name: 'Local Street Food Hunt', description: 'Dive into the authentic local cuisine scene', category: 'Food', cost: 400, duration: '1.5 hours', emoji: '🍜' },
         { time: '03:00 PM', name: `${d.name} Cultural Experience`, description: 'Immerse in local culture and traditions', category: 'Culture', cost: 600, duration: '2 hours', emoji: '🎭' },
         { time: '07:00 PM', name: 'Sunset Viewpoint', description: 'Capture golden hour at the best vantage point', category: 'Photography', cost: 0, duration: '1 hour', emoji: '📸' },
       ],
-      hotel: `Mid-range Hotel in ${d.name} (₹3,000-5,000/night)`,
+      hotel: `Comfortable Stay in ${d.name} (₹3,000-5,000/night)`,
       meals: { breakfast: 'Local Café', lunch: 'Street Food Market', dinner: 'Rooftop Restaurant' },
       dailyCost: Math.floor(budget / days),
       tips: `Day ${i+1} tip: Book popular attractions in advance to avoid queues.`,

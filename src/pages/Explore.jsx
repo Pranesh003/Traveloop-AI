@@ -4,6 +4,7 @@ import SidebarLayout from '../components/SidebarLayout';
 import { discoverDestinations } from '../services/aiService';
 import { getWeather } from '../services/weatherService';
 import { db } from '../services/mockDatabase';
+import { apiService } from '../services/apiService';
 import { Search, Sparkles, MapPin, Star, TrendingUp, Globe, Filter } from 'lucide-react';
 
 const STATIC_FEATURED = [
@@ -27,18 +28,27 @@ export default function Explore() {
   useEffect(() => {
     // Merge real database items with rich mock data
     const fetchAndMap = async () => {
-      const items = (await apiService.destinations.getAll()).filter(d => d.status === 'Active');
+      const rawItems = await apiService.destinations.getAll();
+      const items = rawItems.filter(d => {
+        // Support both PostgreSQL (isPublished) and mock DB (status)
+        const isPublished = d.isPublished !== undefined ? d.isPublished : (d.status === 'Active');
+        return isPublished;
+      });
       const mapped = items.map((d, i) => {
-        const existing = STATIC_FEATURED.find(f => f.name === d.city);
+        // Support both d.city (mock) and d.city.name (PostgreSQL)
+        const cityName = d.city && typeof d.city === 'object' ? d.city.name : (d.city || d.name || 'Unknown');
+        const countryName = d.city && d.city.country && typeof d.city.country === 'object' ? d.city.country.name : (d.country || 'Unknown');
+        
+        const existing = STATIC_FEATURED.find(f => f.name === cityName);
         return {
-          name: d.city,
-          country: d.country,
+          name: cityName,
+          country: countryName,
           emoji: existing?.emoji || ['📍','🗺️','🏔️','🏖️','🏙️', '🚂'][i % 6],
           score: existing?.score || (90 + (i % 10)),
           budget: existing?.budget || 'From ₹50K',
           tag: existing?.tag || 'New',
           color: existing?.color || ['#7c3aed', '#10b981', '#f97316', '#06b6d4', '#f43f5e', '#1d4ed8'][i % 6],
-          desc: existing?.desc || `Explore the beautiful city of ${d.city}, ${d.country}.`
+          desc: existing?.desc || `Explore the beautiful city of ${cityName}, ${countryName}.`
         };
       });
       setDbDestinations(mapped);
