@@ -5,6 +5,8 @@ import { MapPin, Calendar, DollarSign, Users, Edit, Share2, Map, Package, BookOp
 
 import { apiService } from '../services/apiService';
 
+const CATEGORY_ICONS = { Clothing: '👔', Electronics: '📱', Documents: '📄', Medicines: '💊', Toiletries: '🧴', Miscellaneous: '🎒' };
+
 export default function TripDetails() {
   const { tripId } = useParams();
   const navigate = useNavigate();
@@ -176,9 +178,48 @@ export default function TripDetails() {
             </div>
           )}
           {activeTab === 'packing' && (
-            <div className="flex flex-col items-center gap-4">
-              <p className="text-secondary">Manage your packing checklist</p>
-              <button className="btn btn-primary" onClick={() => navigate(`/checklist/${tripId}`)}>Open Packing Assistant <ChevronRight size={16} /></button>
+            <div className="flex flex-col gap-6">
+              {/* Beautiful Packing Preview */}
+              {ai.packingList ? (
+                <div className="glass-card p-6 animate-fade-in">
+                  <h3 className="mb-4 flex items-center gap-2 text-white font-bold" style={{ fontSize: '1.2rem' }}>
+                    <Package size={20} className="text-violet-400" /> Packing Preview
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {Object.entries(ai.packingList).slice(0, 4).map(([cat, itemsList]) => (
+                    <div key={cat} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }} className="hover:border-violet-500/20 transition-colors">
+                      <div style={{ fontWeight: 700, color: 'var(--violet-light)', marginBottom: 8, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 5 }}>
+                        <span>{CATEGORY_ICONS[cat] || '🎒'}</span> {cat}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        {itemsList.slice(0, 3).map(item => (
+                          <span key={item} style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ color: 'rgba(255,255,255,0.15)' }}>⬜</span> {item}
+                          </span>
+                        ))}
+                        {itemsList.length > 3 && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 2, paddingLeft: 14 }}>
+                            +{itemsList.length - 3} more items
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                  <button className="btn btn-primary" onClick={() => navigate(`/checklist/${tripId}`)}>
+                    Open Packing Assistant <ChevronRight size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-4 glass-card p-8 text-center">
+                  <Package size={40} className="text-violet-400 mb-2" />
+                  <h3 className="text-white font-bold">No Packing List Found</h3>
+                  <p className="text-secondary max-w-sm">We couldn't find a packing list for this trip. Open the Packing Assistant to generate one with AI.</p>
+                  <button className="btn btn-primary" onClick={() => navigate(`/checklist/${tripId}`)}>
+                    Open Packing Assistant <ChevronRight size={16} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {activeTab === 'journal' && (

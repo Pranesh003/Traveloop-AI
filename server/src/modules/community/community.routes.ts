@@ -10,6 +10,42 @@ import { AppError } from '../../utils/AppError';
 
 const router = Router();
 
+// --- Reports Management ---
+router.get('/reports', authenticate, catchAsync(async (req: AuthRequest, res) => {
+  const posts = await Post.find({ reports: { $exists: true, $not: { $size: 0 } } });
+  const formatted = posts.flatMap(post => 
+    post.reports.map((report: any) => ({
+      id: `${post._id}_${report.userId}`,
+      postId: post._id,
+      type: 'Post',
+      user: post.userId,
+      reason: report.reason,
+      date: new Date(report.createdAt).toLocaleDateString(),
+      status: post.isDeleted ? 'Resolved' : 'Pending',
+      content: post.content
+    }))
+  );
+  ApiResponse.success(res, formatted);
+}));
+
+router.put('/reports/:id', authenticate, catchAsync(async (req: AuthRequest, res) => {
+  const [postId, reportUserId] = req.params.id.split('_');
+  const post = await Post.findById(postId);
+  if (!post) throw AppError.notFound('Post');
+  
+  post.reports = post.reports.filter(r => r.userId !== reportUserId);
+  await post.save();
+
+  ApiResponse.success(res, { id: req.params.id, status: 'Resolved' });
+}));
+
+router.delete('/reports/:id', authenticate, catchAsync(async (req: AuthRequest, res) => {
+  const [postId] = req.params.id.split('_');
+  const post = await Post.findByIdAndUpdate(postId, { isDeleted: true });
+  if (!post) throw AppError.notFound('Post');
+  ApiResponse.noContent(res);
+}));
+
 // --- Posts ---
 router.get('/', optionalAuth, catchAsync(async (req: AuthRequest, res) => {
   const { page, limit, skip } = getPaginationFromReq(req);
@@ -103,5 +139,4 @@ router.delete('/:postId/comments/:commentId', authenticate, catchAsync(async (re
   await Comment.findByIdAndUpdate(req.params.commentId, { isDeleted: true });
   ApiResponse.noContent(res);
 }));
-
 export default router;

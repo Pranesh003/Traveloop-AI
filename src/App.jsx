@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PERMISSIONS } from './constants/permissions';
+import SidebarLayout from './components/SidebarLayout';
 import './App.css';
 
 // Lazy-loaded basic pages
@@ -72,6 +73,17 @@ function ProtectedRoute({ children, requiredPermission, requiredRole, requiredPl
   return children;
 }
 
+// Wrapper for Admin pages that automatically includes the SidebarLayout
+function AdminRoute({ children, requiredPermission }) {
+  return (
+    <ProtectedRoute requiredPermission={requiredPermission}>
+      <SidebarLayout>
+        {children}
+      </SidebarLayout>
+    </ProtectedRoute>
+  );
+}
+
 function AppRoutes() {
   const { user } = useAuth();
 
@@ -97,19 +109,19 @@ function AppRoutes() {
         <Route path="/calendar" element={<ProtectedRoute requiredPlan="pro"><Calendar /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
-        {/* Admin Modules */}
-        <Route path="/admin" element={<ProtectedRoute requiredPermission={PERMISSIONS.VIEW_ANALYTICS}><AdminDashboard /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_USERS}><UserManagement /></ProtectedRoute>} />
-        <Route path="/admin/destinations" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_DESTINATIONS}><Destinations /></ProtectedRoute>} />
-        <Route path="/admin/activities" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_ACTIVITIES}><Activities /></ProtectedRoute>} />
-        <Route path="/admin/ai" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_AI}><AiManagement /></ProtectedRoute>} />
-        <Route path="/admin/packages" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_PACKAGES}><Packages /></ProtectedRoute>} />
-        <Route path="/admin/community" element={<ProtectedRoute requiredPermission={PERMISSIONS.MODERATE_COMMUNITY}><CommunityModeration /></ProtectedRoute>} />
-        <Route path="/admin/subscriptions" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SUBSCRIPTIONS}><Subscriptions /></ProtectedRoute>} />
-        <Route path="/admin/analytics" element={<ProtectedRoute requiredPermission={PERMISSIONS.VIEW_ANALYTICS}><Analytics /></ProtectedRoute>} />
-        <Route path="/admin/notifications" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SUPPORT}><Notifications /></ProtectedRoute>} />
-        <Route path="/admin/support" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_SUPPORT}><Support /></ProtectedRoute>} />
-        <Route path="/admin/super" element={<ProtectedRoute requiredPermission={PERMISSIONS.MANAGE_PLATFORM}><SuperAdminSettings /></ProtectedRoute>} />
+        {/* Admin Modules wrapped in AdminRoute */}
+        <Route path="/admin" element={<AdminRoute requiredPermission={PERMISSIONS.VIEW_ANALYTICS}><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_USERS}><UserManagement /></AdminRoute>} />
+        <Route path="/admin/destinations" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_DESTINATIONS}><Destinations /></AdminRoute>} />
+        <Route path="/admin/activities" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_ACTIVITIES}><Activities /></AdminRoute>} />
+        <Route path="/admin/ai" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_AI}><AiManagement /></AdminRoute>} />
+        <Route path="/admin/packages" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_PACKAGES}><Packages /></AdminRoute>} />
+        <Route path="/admin/community" element={<AdminRoute requiredPermission={PERMISSIONS.MODERATE_COMMUNITY}><CommunityModeration /></AdminRoute>} />
+        <Route path="/admin/subscriptions" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_SUBSCRIPTIONS}><Subscriptions /></AdminRoute>} />
+        <Route path="/admin/analytics" element={<AdminRoute requiredPermission={PERMISSIONS.VIEW_ANALYTICS}><Analytics /></AdminRoute>} />
+        <Route path="/admin/notifications" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_SUPPORT}><Notifications /></AdminRoute>} />
+        <Route path="/admin/support" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_SUPPORT}><Support /></AdminRoute>} />
+        <Route path="/admin/super" element={<AdminRoute requiredPermission={PERMISSIONS.MANAGE_PLATFORM}><SuperAdminSettings /></AdminRoute>} />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />

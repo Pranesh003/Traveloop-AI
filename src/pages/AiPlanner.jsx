@@ -36,6 +36,7 @@ export default function AiPlanner() {
   const [activeAgents, setActiveAgents] = useState([]);
   const [expandedDays, setExpandedDays] = useState({});
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState(null);
   const resultRef = useRef(null);
 
   const handleGenerate = async (e) => {
@@ -45,6 +46,7 @@ export default function AiPlanner() {
     setTripData(null);
     setSaved(false);
     setActiveAgents([]);
+    setError(null);
 
     // Simulate agents activating one by one
     for (let i = 0; i < AGENT_SEQUENCE.length; i++) {
@@ -54,11 +56,13 @@ export default function AiPlanner() {
 
     try {
       const data = await generateTripPlan(prompt);
+      if (!data) throw new Error('No data returned');
       setTripData(data);
-      setExpandedDays({ 0: true }); // expand first day
+      setExpandedDays({ 0: true });
       setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     } catch (err) {
       console.error(err);
+      setError('Failed to generate trip plan. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -178,9 +182,31 @@ export default function AiPlanner() {
           </div>
         )}
 
+        {/* ─── Error state ─── */}
+        {error && (
+          <div className="glass-card animate-fade-in" style={{ padding: '20px 24px', border: '1px solid rgba(244,63,94,0.3)', background: 'rgba(244,63,94,0.06)', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700, color: '#f87171', marginBottom: 4 }}>Generation failed</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{error} Your AI API key may have hit its daily quota limit. The planner will use sample data as a fallback.</div>
+            </div>
+          </div>
+        )}
+
         {/* ─── Result ─── */}
         {tripData && (
           <div ref={resultRef} className="trip-result animate-fade-in">
+
+            {/* Mock data notice */}
+            {tripData._source === 'mock' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 12, marginBottom: 16 }}>
+                <span style={{ fontSize: '1.2rem' }}>🤖</span>
+                <div>
+                  <span style={{ fontWeight: 700, color: '#fb923c', fontSize: '0.9rem' }}>Sample plan shown — </span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Gemini API quota reached today. This is a smart mock itinerary. Add a new API key in Admin → AI Settings to use real AI generation.</span>
+                </div>
+              </div>
+            )}
 
             {/* Trip Header Card */}
             <div className="trip-result-header glass-card">

@@ -1,15 +1,53 @@
-import React from 'react';
-import { Users, Map, Activity, DollarSign, TrendingUp, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Map, Activity, DollarSign, TrendingUp, ShieldAlert, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { apiService } from '../../services/apiService';
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState(null);
+  const [revenue, setRevenue] = useState(null);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        const [overviewData, revenueData] = await Promise.all([
+          apiService.analytics.getOverview(),
+          apiService.analytics.getRevenue()
+        ]);
+        setOverview(overviewData);
+        setRevenue(revenueData);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={48} />
+      </div>
+    );
+  }
+
+  const totalUsersVal = overview?.users?.total ?? 0;
+  const activeTripsVal = overview?.trips?.active ?? 0;
+  const bookedPackagesVal = overview?.bookings?.total ?? 0;
+  const revenueVal = revenue ? `$${revenue.total.toLocaleString()}` : '$0';
+
   const stats = [
-    { label: 'Total Users', value: '4,289', icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/20' },
-    { label: 'Active Trips', value: '1,842', icon: Map, color: 'text-green-400', bg: 'bg-green-400/20' },
-    { label: 'Booked Packages', value: '384', icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/20' },
-    { label: 'Revenue (MTD)', value: '₹14.2M', icon: DollarSign, color: 'text-primary', bg: 'bg-primary/20' },
+    { label: 'Total Users', value: totalUsersVal.toLocaleString(), icon: Users, color: 'text-blue-400', bg: 'bg-blue-400/20', path: '/admin/users' },
+    { label: 'Active Trips', value: activeTripsVal.toLocaleString(), icon: Map, color: 'text-green-400', bg: 'bg-green-400/20', path: '/admin/destinations' },
+    { label: 'Booked Packages', value: bookedPackagesVal.toLocaleString(), icon: Activity, color: 'text-purple-400', bg: 'bg-purple-400/20', path: '/admin/packages' },
+    { label: 'Revenue (MTD)', value: revenueVal, icon: DollarSign, color: 'text-primary', bg: 'bg-primary/20', path: '/admin/subscriptions' },
   ];
 
   return (
@@ -21,7 +59,12 @@ export default function AdminDashboard() {
 
       <div className="grid-4 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className="stat-card">
+          <div 
+            key={i} 
+            className="stat-card animate-fade-in cursor-pointer hover:scale-[1.02] hover:border-white/20 transition-all" 
+            style={{ animationDelay: `${i * 100}ms` }}
+            onClick={() => navigate(stat.path)}
+          >
             <div className="flex items-center justify-between mb-4">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.bg}`}>
                 <stat.icon className={stat.color} size={20} />
@@ -42,10 +85,10 @@ export default function AdminDashboard() {
           <h3 className="text-xl font-bold text-white mb-2">System Status</h3>
           <p className="text-gray-400">All systems operational.<br/>AI Knowledge Base is up to date.</p>
         </div>
-        <div className="glass-card p-6 rounded-2xl h-80 flex flex-col justify-center items-center text-center">
+        <div className="glass-card p-6 rounded-2xl h-80 flex flex-col justify-center items-center text-center animate-fade-in">
           <Activity size={48} className="text-blue-400/50 mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">Recent Activity</h3>
-          <p className="text-gray-400">Placeholder for recent moderation logs and user activity feed.</p>
+          <p className="text-gray-400">Active users: {overview?.users?.active ?? 0}<br />Completed bookings: {overview?.bookings?.completed ?? 0}</p>
         </div>
       </div>
     </div>

@@ -4,14 +4,26 @@ import { apiService } from '../../services/apiService';
 
 export default function CommunityModeration() {
   const [reports, setReports] = useState([]);
+  const [bannedUsersCount, setBannedUsersCount] = useState(0);
 
   useEffect(() => {
     fetchReports();
+    fetchBannedUsers();
   }, []);
 
   const fetchReports = async () => {
     const data = await apiService.reports.getAll();
     setReports(data);
+  };
+
+  const fetchBannedUsers = async () => {
+    try {
+      const users = await apiService.getUsers();
+      const count = users.filter(u => u.status?.toLowerCase() === 'suspended' || u.status?.toLowerCase() === 'banned').length;
+      setBannedUsersCount(count);
+    } catch (error) {
+      console.error('Error fetching users for banned count:', error);
+    }
   };
 
   const handleResolve = async (id) => {
@@ -30,6 +42,9 @@ export default function CommunityModeration() {
     }
   };
 
+  const pendingReportsCount = reports.filter(r => r.status === 'Pending').length;
+  const criticalAlertsCount = reports.filter(r => r.status === 'Pending' && ['Abuse', 'Harassment', 'Inappropriate Content'].includes(r.reason)).length;
+
   return (
     <div className="page-container p-8 animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -47,7 +62,7 @@ export default function CommunityModeration() {
               <Flag size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">{reports.filter(r => r.status === 'Pending').length}</div>
+              <div className="text-3xl font-bold text-white">{pendingReportsCount}</div>
               <div className="text-sm text-gray-400">Pending Reports</div>
             </div>
           </div>
@@ -58,7 +73,7 @@ export default function CommunityModeration() {
               <ShieldAlert size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">24</div>
+              <div className="text-3xl font-bold text-white">{criticalAlertsCount}</div>
               <div className="text-sm text-gray-400">Critical Alerts</div>
             </div>
           </div>
@@ -69,7 +84,7 @@ export default function CommunityModeration() {
               <UserX size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">12</div>
+              <div className="text-3xl font-bold text-white">{bannedUsersCount}</div>
               <div className="text-sm text-gray-400">Banned Users</div>
             </div>
           </div>

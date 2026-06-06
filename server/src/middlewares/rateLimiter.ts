@@ -21,14 +21,14 @@ const createLimiter = (windowMs: number, max: number, message: string) =>
 // General API limiter
 export const globalLimiter = createLimiter(
   env.RATE_LIMIT_WINDOW_MS,
-  env.RATE_LIMIT_MAX,
+  env.NODE_ENV === 'development' ? 10000 : env.RATE_LIMIT_MAX,
   'Too many requests. Please try again later.',
 );
 
 // Strict limiter for auth endpoints
 export const authLimiter = createLimiter(
   15 * 60 * 1000, // 15 minutes
-  10,
+  env.NODE_ENV === 'development' ? 1000 : 10,
   'Too many authentication attempts. Please wait 15 minutes.',
 );
 

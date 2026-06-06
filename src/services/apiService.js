@@ -146,12 +146,61 @@ export const apiService = {
   plans: createCrudMethods('plans'),
 
   // --- REPORTS ---
-  reports: createCrudMethods('reports'),
+  reports: createCrudMethods('community/reports'),
 
   // --- TICKETS ---
   tickets: createCrudMethods('tickets'),
 
   // --- BROADCASTS ---
   broadcasts: createCrudMethods('broadcasts'),
+
+  // --- ANALYTICS ---
+  analytics: {
+    getOverview: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/analytics/overview`, {
+          headers: getHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.data ?? data;
+        }
+        throw new Error(`API error: ${response.status}`);
+      } catch (error) {
+        console.error('Fetch error for analytics overview:', error);
+        return null;
+      }
+    },
+    getRevenue: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/analytics/revenue`, {
+          headers: getHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.data ?? data;
+        }
+        throw new Error(`API error: ${response.status}`);
+      } catch (error) {
+        console.error('Fetch error for analytics revenue:', error);
+        return null;
+      }
+    },
+    getAiOverview: async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/analytics/ai`, {
+          headers: getHeaders()
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.data ?? data;
+        }
+        throw new Error(`API error: ${response.status}`);
+      } catch (error) {
+        console.error('Fetch error for AI analytics overview:', error);
+        return null;
+      }
+    }
+  }
 };
 

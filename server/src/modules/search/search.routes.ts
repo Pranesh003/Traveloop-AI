@@ -67,18 +67,63 @@ router.get('/search', optionalAuth, catchAsync(async (req: AuthRequest, res) => 
   ApiResponse.success(res, results);
 }));
 
+function formatPackageForFrontend(pkg: any) {
+  if (!pkg) return null;
+  return {
+    ...pkg,
+    name: pkg.title,
+    duration: `${pkg.durationDays} Days`,
+    price: `₹${(pkg.price || 0).toLocaleString()}`,
+    bookings: pkg._count?.bookings ?? 0,
+  };
+}
+
+function mapPackagePayload(body: any) {
+  const data: any = {};
+  
+  if (body.name !== undefined) data.title = body.name;
+  if (body.title !== undefined) data.title = body.title;
+  
+  if (body.duration !== undefined) {
+    const days = parseInt(body.duration.replace(/\D/g, ''));
+    data.durationDays = isNaN(days) ? 7 : days;
+  }
+  if (body.durationDays !== undefined) {
+    data.durationDays = parseInt(body.durationDays);
+  }
+
+  if (body.price !== undefined) {
+    const rawPrice = String(body.price).replace(/[^0-9.]/g, '');
+    const priceVal = parseFloat(rawPrice);
+    data.price = isNaN(priceVal) ? 0 : priceVal;
+  }
+
+  data.currency = body.currency || 'INR';
+  data.isPublished = body.isPublished !== undefined 
+    ? (body.isPublished === 'true' || body.isPublished === true)
+    : true;
+
+  if (body.description !== undefined) data.description = body.description;
+  if (body.rating !== undefined) data.rating = parseFloat(body.rating) || 5.0;
+
+  return data;
+}
+
 // --- Packages ---
 router.get('/packages', optionalAuth, catchAsync(async (req: AuthRequest, res) => {
   const { page, limit, skip } = getPaginationFromReq(req);
   const [packages, total] = await Promise.all([
     prisma.travelPackage.findMany({
-      where: { isPublished: true },
-      include: { createdBy: { select: { name: true, avatar: true } } },
+      include: { 
+        createdBy: { select: { name: true, avatar: true } },
+        _count: { select: { bookings: true } }
+      },
       skip, take: limit, orderBy: { rating: 'desc' },
     }),
-    prisma.travelPackage.count({ where: { isPublished: true } }),
+    prisma.travelPackage.count(),
   ]);
-  ApiResponse.paginated(res, packages, total, page, limit);
+  const formatted = packages.map(formatPackageForFrontend);
+  ApiResponse.paginated(res, formatted, total, page, limit);
 }));
 
 router.get('/packages/:id', optionalAuth, catchAsync(async (req: AuthRequest, res) => {
@@ -87,10 +132,11 @@ router.get('/packages/:id', optionalAuth, catchAsync(async (req: AuthRequest, re
     include: {
       createdBy: { select: { name: true, avatar: true } },
       activities: { include: { activity: true } },
+      _count: { select: { bookings: true } }
     },
   });
   if (!pkg) throw AppError.notFound('Package');
-  ApiResponse.success(res, pkg);
+  ApiResponse.success(res, formatPackageForFrontend(pkg));
 }));
 
 router.post('/packages', authenticate, authorize({ permissions: ['MANAGE_PACKAGES'] }), uploadFields, catchAsync(async (req: AuthRequest, res) => {
@@ -107,15 +153,17 @@ router.post('/packages', authenticate, authorize({ permissions: ['MANAGE_PACKAGE
     coverImage = upload.secureUrl;
   }
 
+  const mappedData = mapPackagePayload(req.body);
   const pkg = await prisma.travelPackage.create({
-    data: { ...req.body, createdById: req.user!.id, images, coverImage, price: parseFloat(req.body.price) },
+    data: { ...mappedData, createdById: req.user!.id, images, coverImage },
   });
-  ApiResponse.created(res, pkg, 'Package created');
+  ApiResponse.created(res, formatPackageForFrontend(pkg), 'Package created');
 }));
 
 router.put('/packages/:id', authenticate, authorize({ permissions: ['MANAGE_PACKAGES'] }), catchAsync(async (req: AuthRequest, res) => {
-  const pkg = await prisma.travelPackage.update({ where: { id: req.params.id }, data: req.body });
-  ApiResponse.success(res, pkg, 'Package updated');
+  const mappedData = mapPackagePayload(req.body);
+  const pkg = await prisma.travelPackage.update({ where: { id: req.params.id }, data: mappedData });
+  ApiResponse.success(res, formatPackageForFrontend(pkg), 'Package updated');
 }));
 
 router.delete('/packages/:id', authenticate, authorize({ permissions: ['MANAGE_PACKAGES'] }), catchAsync(async (req: AuthRequest, res) => {

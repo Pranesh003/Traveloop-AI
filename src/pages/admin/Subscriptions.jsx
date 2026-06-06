@@ -4,6 +4,7 @@ import { apiService } from '../../services/apiService';
 
 export default function Subscriptions() {
   const [plans, setPlans] = useState([]);
+  const [mrr, setMrr] = useState('$0');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   
@@ -12,11 +13,23 @@ export default function Subscriptions() {
 
   useEffect(() => {
     fetchPlans();
+    fetchMrr();
   }, []);
 
   const fetchPlans = async () => {
     const data = await apiService.plans.getAll();
     setPlans(data);
+  };
+
+  const fetchMrr = async () => {
+    try {
+      const data = await apiService.analytics.getRevenue();
+      if (data) {
+        setMrr(`$${data.total.toLocaleString()}`);
+      }
+    } catch (error) {
+      console.error('Error fetching MRR:', error);
+    }
   };
 
   const openModal = (item) => {
@@ -61,7 +74,7 @@ export default function Subscriptions() {
             </div>
             <div>
               <div className="text-3xl font-bold text-white">
-                {plans.reduce((sum, p) => sum + (p.users || 0), 0)}
+                {plans.reduce((sum, p) => sum + (Number(p.users) || 0), 0).toLocaleString()}
               </div>
               <div className="text-sm text-gray-400">Total Subscribers</div>
             </div>
@@ -73,7 +86,7 @@ export default function Subscriptions() {
               <Zap size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">₹1.2M</div>
+              <div className="text-3xl font-bold text-white">{mrr}</div>
               <div className="text-sm text-gray-400">Monthly Recurring Revenue</div>
             </div>
           </div>

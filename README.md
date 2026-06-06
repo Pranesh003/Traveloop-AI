@@ -23,12 +23,12 @@
 
 ---
 
-### 🚀 What's New in v2.1
-- **Day-to-Day Dynamic Calendar:** The calendar now automatically unpacks AI-generated itineraries and plots each day's specific theme and activities onto the calendar grid, complete with emojis and color-coding.
-- **Robust AI Data Parsing:** Enhanced defensive parsing across `ItineraryBuilder`, `Budget`, and `TripDetails` to handle stringified JSON safely from the backend, ensuring no missing data.
-- **Full Backend Integration:** `MyTrips`, `Calendar`, and the dashboard are now fully decoupled from static mock data and fetch directly from the PostgreSQL/Prisma backend.
-- **Premium Feature Gating:** Strictly enforced role-based access for the AI Planner and AI Chat to prevent free users from accessing premium endpoints.
-- **Grid Overflow Fixes:** Cleaned up CSS grid calculations in `Calendar.jsx` to perfectly truncate long AI responses.
+### 🚀 What's New in v2.2
+- **Unified Multi-Key Rotation Fallback**: Built a rotation-aware client that cycles through a pool of up to 5 Gemini API keys if one fails due to quota exhaustion or rate limits, guaranteeing a robust AI response system.
+- **Gemini 3.5 Flash Model Integration**: Updated default routing and auto-migration schemas to use `gemini-3.5-flash` for high-throughput, quota-stable generation.
+- **Sidebar-Gated Locked Features**: Integrated lock badges and checkout modal intercepts across all premium sidebar tabs for free users.
+- **Glassmorphic Paywall Modal**: Styled a beautiful, mock credit card payment processing checkout modal directly into the Dashboard and SidebarLayout components, updating plan states instantly on successful payment.
+- **Dynamic Packing Preview**: Embedded uniform, emoji-enhanced packing previews inside the Itinerary Builder dashboard and Trip Details overview tab.
 
 ---
 

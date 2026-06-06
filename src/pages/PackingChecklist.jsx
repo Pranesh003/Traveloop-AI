@@ -31,6 +31,33 @@ export default function PackingChecklist() {
   const [newItem, setNewItem] = useState({});
   const [aiLoading, setAiLoading] = useState(false);
 
+  const [trip, setTrip] = useState(null);
+
+  useEffect(() => {
+    async function loadTrip() {
+      try {
+        const data = await apiService.trips.getById(tripId);
+        setTrip(data);
+        
+        // If there's no saved localStorage checklist yet, but the trip has AI-generated packingList, initialize from it
+        const saved = localStorage.getItem(`tl_packing_${tripId}`);
+        if (!saved) {
+          const aiData = data?.aiData ? (typeof data.aiData === 'string' ? JSON.parse(data.aiData) : data.aiData) : {};
+          if (aiData?.packingList) {
+            const initial = {};
+            Object.entries(aiData.packingList).forEach(([cat, list]) => {
+              initial[cat] = list.map(name => ({ id: Date.now() + Math.random(), name, packed: false }));
+            });
+            setItems(initial);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load trip info for packing list:', err);
+      }
+    }
+    loadTrip();
+  }, [tripId]);
+
   useEffect(() => {
     localStorage.setItem(`tl_packing_${tripId}`, JSON.stringify(items));
   }, [items, tripId]);
@@ -61,8 +88,15 @@ export default function PackingChecklist() {
   };
 
   const generateAI = async () => {
+    if (!trip) return;
     setAiLoading(true);
-    const list = await generatePackingList({ destination: 'Japan', duration: 7, weather: 'Cool 15°C', travelStyle: 'Cultural' });
+    const aiData = trip.aiData || {};
+    const list = await generatePackingList({
+      destination: trip.description || 'Unknown Destination',
+      duration: aiData.duration || 7,
+      weather: aiData.weather || 'Pleasant 22°C',
+      travelStyle: aiData.travelStyle || 'Leisure'
+    });
     const converted = {};
     Object.entries(list).forEach(([cat, names]) => {
       converted[cat] = names.map(name => ({ id: Date.now() + Math.random(), name, packed: false }));

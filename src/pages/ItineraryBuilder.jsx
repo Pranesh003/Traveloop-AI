@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/apiService';
 import SidebarLayout from '../components/SidebarLayout';
-import { Plus, Trash2, Edit, Check, X, MapPin, Clock, DollarSign, Sparkles, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Edit, Check, X, MapPin, Clock, DollarSign, Sparkles, GripVertical, Package } from 'lucide-react';
+
+const CATEGORY_ICONS = { Clothing: '👔', Electronics: '📱', Documents: '📄', Medicines: '💊', Toiletries: '🧴', Miscellaneous: '🎒' };
 
 const INITIAL_STOPS = [
   { id: 1, city: 'Tokyo', country: 'Japan', startDate: '2026-10-15', endDate: '2026-10-18', order: 0, activities: [
@@ -107,6 +109,9 @@ export default function ItineraryBuilder() {
 
   const totalCost = stops.flatMap(s => s.activities || []).reduce((sum, a) => sum + (a.cost || 0), 0);
 
+  const aiData = trip ? (typeof trip.aiData === 'string' ? JSON.parse(trip.aiData) : trip.aiData) : {};
+  const packingList = aiData?.packingList;
+
   return (
     <SidebarLayout>
       <div className="page-container">
@@ -126,6 +131,10 @@ export default function ItineraryBuilder() {
             </button>
           </div>
         </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }} className="itinerary-grid-layout">
+          {/* Main content column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
         {/* Route Overview */}
         <div className="glass-card p-5 mb-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
@@ -256,7 +265,53 @@ export default function ItineraryBuilder() {
               </button>
             </div>
           )}
+          </div>
+
+          {/* Sidebar column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }} className="itinerary-sidebar-layout animate-fade-in">
+            {packingList ? (
+              <div className="glass-card p-5">
+                <h3 className="mb-4 flex items-center gap-2 text-white font-bold" style={{ fontSize: '1.05rem' }}>
+                  <Package size={18} className="text-violet-400" /> Packing Preview
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {Object.entries(packingList).slice(0, 4).map(([cat, itemsList]) => (
+                    <div key={cat} style={{ borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--violet-light)', marginBottom: 6, fontSize: '0.82rem' }}>
+                        {cat}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {itemsList.slice(0, 3).map(item => (
+                          <span key={item} style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            ⬜ {item}
+                          </span>
+                        ))}
+                        {itemsList.length > 3 && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: 2 }}>
+                            +{itemsList.length - 3} more items
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <button className="btn btn-secondary btn-sm mt-4" style={{ width: '100%' }} onClick={() => navigate(`/checklist/${tripId}`)}>
+                  Edit Full Checklist
+                </button>
+              </div>
+            ) : (
+              <div className="glass-card p-5 text-center">
+                <Package size={32} className="text-violet-400 mb-2 mx-auto" />
+                <h4 className="text-white font-bold" style={{ fontSize: '0.95rem' }}>No Packing Checklist</h4>
+                <p className="text-secondary text-xs mb-3" style={{ lineHeight: 1.5 }}>Generate your dynamic packing checklist for this trip.</p>
+                <button className="btn btn-primary btn-sm" style={{ width: '100%' }} onClick={() => navigate(`/checklist/${tripId}`)}>
+                  Generate Packing Checklist
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
       </div>
     </SidebarLayout>
   );

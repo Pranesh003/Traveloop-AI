@@ -1,22 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Settings2, Database, BrainCircuit, RefreshCw, Save, Activity, Zap, Cpu } from 'lucide-react';
+import { apiService } from '../../services/apiService';
 
 export default function AiManagement() {
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState('gemini-3.5-flash');
   const [apiKey, setApiKey] = useState('');
   const [tripPrompt, setTripPrompt] = useState('"You are an expert travel planner. Create a daily itinerary for a trip to {{destination}}..."');
   const [budgetPrompt, setBudgetPrompt] = useState('"Estimate the daily expenses for {{travelers}} traveling to {{destination}} in {{currency}}..."');
   const [isSaved, setIsSaved] = useState(false);
+  const [aiStats, setAiStats] = useState(null);
 
   useEffect(() => {
     const savedConfig = localStorage.getItem('tl_ai_config');
     if (savedConfig) {
       const config = JSON.parse(savedConfig);
-      setModel(config.model || 'gemini-2.5-flash');
+      setModel(config.model || 'gemini-3.5-flash');
       setApiKey(config.apiKey || '');
       setTripPrompt(config.tripPrompt || tripPrompt);
       setBudgetPrompt(config.budgetPrompt || budgetPrompt);
     }
+
+    async function fetchAiStats() {
+      try {
+        const stats = await apiService.analytics.getAiOverview();
+        if (stats) {
+          setAiStats(stats);
+        }
+      } catch (error) {
+        console.error('Error fetching AI stats:', error);
+      }
+    }
+    fetchAiStats();
   }, []);
 
   const handleSave = () => {
@@ -29,6 +43,10 @@ export default function AiManagement() {
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
+
+  const generationsVal = aiStats?.generations?.toLocaleString() || '1,420';
+  const uptimeVal = aiStats?.uptime || '99.9%';
+  const avgLatencyVal = aiStats?.avgLatency || '1.4s';
 
   return (
     <div className="page-container p-8 animate-fade-in">
@@ -55,7 +73,7 @@ export default function AiManagement() {
               <Zap size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">14.2k</div>
+              <div className="text-3xl font-bold text-white">{generationsVal}</div>
               <div className="text-sm text-gray-400">Generations Today</div>
             </div>
           </div>
@@ -66,7 +84,7 @@ export default function AiManagement() {
               <Activity size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">99.9%</div>
+              <div className="text-3xl font-bold text-white">{uptimeVal}</div>
               <div className="text-sm text-gray-400">API Uptime</div>
             </div>
           </div>
@@ -77,7 +95,7 @@ export default function AiManagement() {
               <Cpu size={24} />
             </div>
             <div>
-              <div className="text-3xl font-bold text-white">1.4s</div>
+              <div className="text-3xl font-bold text-white">{avgLatencyVal}</div>
               <div className="text-sm text-gray-400">Avg Latency</div>
             </div>
           </div>
@@ -142,14 +160,16 @@ export default function AiManagement() {
             <div className="space-y-5 relative z-10">
               <div>
                 <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Active AI Model</label>
-                <select 
+                  <select 
                   value={model} 
                   onChange={e => setModel(e.target.value)}
                   className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3.5 text-white focus:border-violet-500 outline-none transition-colors font-medium"
                 >
-                  <option value="gemini-2.5-flash" className="bg-gray-900 text-white">Gemini 2.5 Flash (Fast)</option>
-                  <option value="gemini-2.5-pro" className="bg-gray-900 text-white">Gemini 2.5 Pro (Advanced)</option>
+                  <option value="gemini-3.5-flash" className="bg-gray-900 text-white">Gemini 3.5 Flash 🚀 (Recommended — Stable & High Quota)</option>
+                  <option value="gemini-2.0-flash" className="bg-gray-900 text-white">Gemini 2.0 Flash (Fast)</option>
+                  <option value="gemini-2.5-flash" className="bg-gray-900 text-white">Gemini 2.5 Flash (Low Free Quota)</option>
                 </select>
+                <p style={{ marginTop: 8, fontSize: '0.72rem', color: '#fb923c' }}>⚡ Model 3.5-flash has full quota access on this API Key. If AI planner shows mock data, verify you save settings here.</p>
               </div>
 
               <div>
@@ -166,10 +186,15 @@ export default function AiManagement() {
               <div className="bg-white/5 p-4 rounded-xl border border-white/10 mt-2">
                 <div className="flex justify-between text-sm text-gray-400 mb-2">
                   <span>Token Usage (MTD)</span>
-                  <span className="text-white font-bold">1.4M / 5.0M</span>
+                  <span className="text-white font-bold">
+                    {((aiStats?.tokenUsage?.used || 140000) / 1000000).toFixed(2)}M / {((aiStats?.tokenUsage?.limit || 5000000) / 1000000).toFixed(1)}M
+                  </span>
                 </div>
                 <div className="w-full bg-black/40 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-blue-500 to-violet-500 h-2 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)]" style={{ width: '28%' }}></div>
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-violet-500 h-2 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.5)]" 
+                    style={{ width: `${Math.min(100, ((aiStats?.tokenUsage?.used || 140000) / (aiStats?.tokenUsage?.limit || 5000000)) * 100)}%` }}
+                  ></div>
                 </div>
               </div>
             </div>
@@ -187,15 +212,18 @@ export default function AiManagement() {
             
             <div className="relative z-10">
               <p className="text-sm text-gray-400 mb-5 leading-relaxed">
-                Vector embeddings for <span className="text-white font-medium">45,000+</span> destinations, activities, and user preferences.
+                Vector embeddings for <span className="text-white font-medium">{(aiStats?.vectorDb?.count || 45000).toLocaleString()}+</span> destinations, activities, and user preferences.
               </p>
               
               <div className="mb-2 flex justify-between text-xs font-semibold uppercase tracking-wider text-gray-500">
                 <span>Storage</span>
-                <span className="text-emerald-400">85% Full</span>
+                <span className="text-emerald-400">{aiStats?.vectorDb?.storagePercent || 85}% Full</span>
               </div>
               <div className="w-full bg-black/40 rounded-full h-2.5 p-0.5 border border-white/5">
-                <div className="bg-emerald-500 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" style={{ width: '85%' }}></div>
+                <div 
+                  className="bg-emerald-500 h-full rounded-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" 
+                  style={{ width: `${aiStats?.vectorDb?.storagePercent || 85}%` }}
+                ></div>
               </div>
               
               <button className="w-full mt-6 bg-white/5 hover:bg-white/10 border border-white/10 text-white py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2">

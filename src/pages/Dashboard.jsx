@@ -6,7 +6,7 @@ import { getWeather } from '../services/weatherService';
 import { apiService } from '../services/apiService';
 import {
   Sparkles, Plus, MapPin, Calendar, TrendingUp, Globe,
-  ArrowRight, Compass, Zap, Star, Clock, Users
+  ArrowRight, Compass, Zap, Star, Clock, Users, Lock, CreditCard, X
 } from 'lucide-react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import './Dashboard.css';
@@ -51,6 +51,18 @@ export default function Dashboard() {
   const [aiInput, setAiInput] = useState('');
   const [dbInspiration, setDbInspiration] = useState([]);
   const [dbTrips, setDbTrips] = useState([]);
+  const [packages, setPackages] = useState([]);
+
+  // Payment Gateway states
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPlanName, setSelectedPlanName] = useState('');
+  const [selectedPlanPrice, setSelectedPlanPrice] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [paymentProcessing, setPaymentProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   const hour = new Date().getHours();
   const greeting = GREETINGS.find(g => hour >= g.range[0] && hour < g.range[1]) || GREETINGS[0];
@@ -144,6 +156,16 @@ export default function Dashboard() {
       }
     };
     loadTrips();
+
+    const loadPackages = async () => {
+      try {
+        const data = await apiService.packages.getAll();
+        setPackages(data.slice(0, 4));
+      } catch (e) {
+        console.error("Failed to load packages", e);
+      }
+    };
+    loadPackages();
   }, []);
 
   useEffect(() => {
@@ -245,9 +267,9 @@ export default function Dashboard() {
               </div>
             </div>
             <button className="btn btn-primary btn-sm" onClick={() => {
-              const updated = { ...user, plan: 'premium' };
-              localStorage.setItem('tl_user', JSON.stringify(updated));
-              window.location.reload();
+              setSelectedPlanName('Premium');
+              setSelectedPlanPrice('₹299');
+              setPaymentModalOpen(true);
             }}>
               ⭐ Upgrade to Premium
             </button>
@@ -371,6 +393,60 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* ─── New Packages ─── */}
+        {packages.length > 0 && (
+          <section className="inspiration-section animate-fade-in" style={{ animationDelay: '0.25s' }}>
+            <div className="section-header">
+              <div>
+                <div className="section-title">New Packages</div>
+                <div className="section-subtitle">Exclusively curated travel packages for you</div>
+              </div>
+            </div>
+            
+            <div className="relative mt-4">
+              <div className={`packages-grid ${user?.plan === 'free' ? 'filter blur-sm select-none pointer-events-none' : ''}`}>
+                {packages.map((pkg) => (
+                  <div key={pkg.id} className="package-card">
+                    <div className="package-card-glow" />
+                    <div>
+                      <div className="flex justify-between items-start mb-3">
+                        <span className="text-xs font-semibold bg-violet-500/10 text-violet-400 px-2.5 py-1 rounded-md">{pkg.duration}</span>
+                        <div className="flex items-center gap-1 text-sm text-yellow-400 font-bold">
+                          <Star size={14} className="fill-yellow-400" /> {pkg.rating || '5.0'}
+                        </div>
+                      </div>
+                      <h4 className="text-base font-bold text-white mb-2 leading-snug">{pkg.name}</h4>
+                    </div>
+                    <div className="flex justify-between items-center mt-4 pt-3 border-t border-white/5 relative z-10">
+                      <span className="text-lg font-black text-white">{pkg.price}</span>
+                      <button className="text-xs font-bold text-violet-400 hover:text-white bg-violet-500/10 hover:bg-violet-500 px-3 py-1.5 rounded-lg transition-all" onClick={() => navigate('/ai-planner', { state: { packageId: pkg.id } })}>
+                        Book Now
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {user?.plan === 'free' && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-md rounded-2xl p-6 border border-white/10 text-center z-10">
+                  <div className="w-12 h-12 rounded-full bg-violet-500/20 flex items-center justify-center text-violet-400 mb-3">
+                    <Lock size={24} />
+                  </div>
+                  <h4 className="text-lg font-bold text-white mb-1">Unlock Premium Curated Packages</h4>
+                  <p className="text-sm text-gray-400 max-w-sm mb-4">Upgrade to Pro or Premium Planner to access and book these exclusive travel itineraries.</p>
+                  <button className="btn btn-primary btn-sm" style={{ background: 'var(--gradient-violet)' }} onClick={() => {
+                    setSelectedPlanName('Premium');
+                    setSelectedPlanPrice('₹299');
+                    setPaymentModalOpen(true);
+                  }}>
+                    ⭐ Upgrade to Plan
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ─── Inspiration ─── */}
         <section className="inspiration-section animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <div className="section-header">
@@ -399,6 +475,125 @@ export default function Dashboard() {
           </div>
         </section>
       </div>
+
+      {/* ─── Payment Modal ─── */}
+      {paymentModalOpen && (
+        <div className="modal-backdrop" onClick={() => setPaymentModalOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div className="modal glass-card" style={{ maxWidth: 440, padding: 32, width: '100%', position: 'relative' }} onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', color: 'white' }}>
+                <CreditCard className="text-violet" size={20} />
+                Secure Checkout
+              </h3>
+              <button 
+                onClick={() => setPaymentModalOpen(false)} 
+                style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: 8, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {paymentSuccess ? (
+              <div className="text-center py-6 flex flex-col items-center gap-4 animate-scale-in">
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(16,185,129,0.1)', color: 'var(--emerald)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', margin: '0 auto' }}>
+                  ✓
+                </div>
+                <h4 className="text-lg font-bold text-white">Payment Successful!</h4>
+                <p className="text-sm text-gray-400">
+                  Your account is being upgraded. Unlocking premium features...
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setPaymentProcessing(true);
+                setTimeout(async () => {
+                  setPaymentProcessing(false);
+                  setPaymentSuccess(true);
+                  const targetPlan = selectedPlanName.toLowerCase() === 'premium' ? 'premium' : 'pro';
+                  if (user) {
+                    await updateUser({ plan: targetPlan });
+                    setTimeout(() => {
+                      setPaymentModalOpen(false);
+                      setPaymentSuccess(false);
+                      window.location.reload();
+                    }, 1500);
+                  }
+                }, 2000);
+              }} className="flex flex-col gap-4">
+                <div style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.2)', padding: '12px 16px', borderRadius: 12, marginBottom: 8 }}>
+                  <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--violet-light)', fontWeight: 700 }}>Selected Tier</div>
+                  <div className="flex justify-between items-center mt-1">
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'white' }}>{selectedPlanName} Plan</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--emerald-light)' }}>{selectedPlanPrice}/mo</span>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Cardholder Name</label>
+                  <input required type="text" placeholder="John Doe" value={cardName} onChange={e => setCardName(e.target.value)} style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, color: 'white', outline: 'none' }} />
+                </div>
+
+                <div className="input-group">
+                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Card Number</label>
+                  <input 
+                    required 
+                    type="text" 
+                    placeholder="4111 2222 3333 4444" 
+                    maxLength={19} 
+                    value={cardNumber} 
+                    onChange={e => {
+                      const val = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
+                      setCardNumber(val);
+                    }} 
+                    style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, color: 'white', outline: 'none' }}
+                  />
+                </div>
+
+                <div className="grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Expiry Date</label>
+                    <input 
+                      required 
+                      type="text" 
+                      placeholder="MM/YY" 
+                      maxLength={5} 
+                      value={cardExpiry} 
+                      onChange={e => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        if (val.length >= 2) {
+                          setCardExpiry(val.slice(0, 2) + '/' + val.slice(2, 4));
+                        } else {
+                          setCardExpiry(val);
+                        }
+                      }} 
+                      style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, color: 'white', outline: 'none' }}
+                    />
+                  </div>
+                  <div className="input-group">
+                    <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CVV</label>
+                    <input required type="password" placeholder="•••" maxLength={3} value={cardCvv} onChange={e => setCardCvv(e.target.value.replace(/\D/g, ''))} style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)', padding: '10px 14px', borderRadius: 10, color: 'white', outline: 'none' }} />
+                  </div>
+                </div>
+
+                <button type="submit" className="btn btn-primary w-full mt-4" disabled={paymentProcessing} style={{ width: '100%' }}>
+                  {paymentProcessing ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="loading-spinner" style={{ width: 16, height: 16 }} />
+                      <span>Processing Transaction...</span>
+                    </div>
+                  ) : (
+                    <span>Pay {selectedPlanPrice}</span>
+                  )}
+                </button>
+                <p style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                  🔒 256-Bit SSL Encrypted Connection
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </SidebarLayout>
   );
 }

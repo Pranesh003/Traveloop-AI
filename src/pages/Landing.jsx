@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plane, Sparkles, Map, Shield, Zap, Globe, Star, ChevronRight, ArrowRight, Check, CreditCard, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Landing.css';
@@ -31,6 +31,7 @@ const STATS = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, updateUser } = useAuth();
   const [wordIdx, setWordIdx] = useState(0);
   const [demoPrompt, setDemoPrompt] = useState('');
@@ -40,6 +41,18 @@ export default function Landing() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedPlanName, setSelectedPlanName] = useState('');
   const [selectedPlanPrice, setSelectedPlanPrice] = useState('');
+
+  useEffect(() => {
+    if (location.state?.openPayment) {
+      const planName = location.state.openPayment;
+      const plan = PRICING.find(p => p.name.toLowerCase() === planName.toLowerCase());
+      if (plan) {
+        setSelectedPlanName(plan.name);
+        setSelectedPlanPrice(plan.price);
+        setPaymentModalOpen(true);
+      }
+    }
+  }, [location]);
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
