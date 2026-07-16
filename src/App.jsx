@@ -5,6 +5,7 @@ import { PERMISSIONS } from './constants/permissions';
 import SidebarLayout from './components/SidebarLayout';
 import './App.css';
 
+
 // Lazy-loaded basic pages
 const Landing = lazy(() => import('./pages/Landing'));
 const Login = lazy(() => import('./pages/Login'));
